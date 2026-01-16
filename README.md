@@ -1,50 +1,77 @@
-# Welcome to your Expo app 👋
+# Avatar App 🎭
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile-first avatar creation app built with React Native and Expo.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **User Authentication** - Simple login/signup flow
+- **Avatar Editor** - Customize your digital identity
+- **Item Selection** - Browse and apply clothes, hair, and accessories
+- **AI Generation** - Generate custom items with AI (coming soon)
+- **Dark Mode** - Full light and dark theme support
 
+## Tech Stack
+
+- React Native
+- Expo Router (file-based routing)
+- TypeScript
+- Expo SDK 54
+
+## Project Structure
+
+```
+app/
+├── _layout.tsx           # Root layout with theme provider
+├── index.tsx             # Redirects to login
+├── login.tsx             # Login/signup screen
+└── (main)/               # Authenticated routes (tabs)
+    ├── _layout.tsx       # Tab navigation layout
+    ├── home.tsx          # Dashboard/home screen
+    ├── avatar-editor.tsx # Avatar customization
+    ├── item-selection.tsx # Browse items
+    └── ai-generate.tsx   # AI generation placeholder
+```
+
+## Getting Started
+
+1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Start the app
-
+2. Start the development server:
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+3. Open the app:
+   - Press `i` for iOS simulator
+   - Press `a` for Android emulator
+   - Scan QR code with Expo Go app
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Current State
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+This is a **frontend MVP** with:
+- ✅ Clean routing structure
+- ✅ Modern, minimal UI
+- ✅ Dark mode support
+- ✅ Mock data and placeholders
+- ⏳ No backend integration yet
+- ⏳ No AI integration yet
+- ⏳ No 3D avatar rendering yet
 
-## Get a fresh project
+## Next Steps
 
-When you're ready, run:
+1. Integrate backend API for authentication
+2. Connect to avatar data storage
+3. Add 3D avatar rendering library
+4. Integrate AI generation service
+5. Add real item catalog
+6. Implement avatar export functionality
 
-```bash
-npm run reset-project
-```
+## Development Notes
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- All data is currently mocked/hardcoded
+- Login accepts any email/password combination
+- Avatar preview is a placeholder
+- AI generation is a UI mockup only
