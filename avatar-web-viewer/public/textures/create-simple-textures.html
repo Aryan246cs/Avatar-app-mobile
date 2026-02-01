@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Texture Images</title>
+</head>
+<body>
+    <script>
+        // Create simple colored textures
+        function createTexture(color, name) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 256, 256);
+            
+            // Download the image
+            const link = document.createElement('a');
+            link.download = name + '.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Create textures
+        setTimeout(() => {
+            createTexture('#4169e1', 'top_default');
+            createTexture('#000000', 'top_black');
+            createTexture('#ffffff', 'top_white');
+            createTexture('#2e2e2e', 'pants_default');
+            createTexture('#000080', 'pants_blue');
+            createTexture('#8b4513', 'pants_brown');
+            createTexture('#654321', 'shoes_default');
+            createTexture('#000000', 'shoes_black');
+            createTexture('#ffffff', 'shoes_white');
+        }, 1000);
+    </script>
+    <p>Texture images will be downloaded automatically...</p>
+</body>
+</html>
