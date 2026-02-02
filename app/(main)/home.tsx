@@ -11,6 +11,24 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await clearAuthToken();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
+  };
+
   const cards = [
     {
       title: 'Create Avatar',
@@ -39,8 +57,18 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <ThemedText type="title">Welcome Back!</ThemedText>
-          <ThemedText style={styles.subtitle}>Ready to create your avatar?</ThemedText>
+          <View style={styles.headerTop}>
+            <View>
+              <ThemedText type="title">Welcome Back!</ThemedText>
+              <ThemedText style={styles.subtitle}>Ready to create your avatar?</ThemedText>
+            </View>
+            <TouchableOpacity 
+              style={[styles.logoutButton, { backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0' }]}
+              onPress={handleLogout}
+            >
+              <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.cardsContainer}>
@@ -95,6 +123,18 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 32,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   subtitle: {
     fontSize: 16,

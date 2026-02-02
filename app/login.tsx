@@ -2,28 +2,98 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { setAuthToken } from '@/utils/auth';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const handleLogin = () => {
-    // Mock login - no backend validation
-    if (email && password) {
-      router.replace('/(main)/home');
+  // API Base URL - use your computer's IP for mobile testing
+  const API_BASE_URL = 'http://10.7.15.239:5000/api';
+
+  const handleLogin = async () => {
+    console.log('Login button clicked!', { email, password });
+    
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      console.log('Login response:', data);
+
+      if (data.success) {
+        // Store token for future requests
+        await setAuthToken(data.token);
+        console.log('Login successful, navigating to home...');
+        router.replace('/(main)/home');
+      } else {
+        Alert.alert('Login Failed', data.message || 'Invalid credentials');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Error', 'Network error. Please check if the backend is running.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSignUp = () => {
-    // Mock signup - same as login for now
-    if (email && password) {
-      router.replace('/(main)/home');
+  const handleSignUp = async () => {
+    console.log('Signup button clicked!', { email, password });
+    
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      console.log('Signup response:', data);
+
+      if (data.success) {
+        // Store token for future requests
+        await setAuthToken(data.token);
+        console.log('Signup successful, navigating to home...');
+        router.replace('/(main)/home');
+      } else {
+        Alert.alert('Registration Failed', data.message || 'Registration failed');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      Alert.alert('Error', 'Network error. Please check if the backend is running.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,26 +137,38 @@ export default function LoginScreen() {
           />
 
           <TouchableOpacity 
-            style={[styles.button, { backgroundColor: colors.tint }]}
+            style={[
+              styles.button, 
+              { 
+                backgroundColor: loading ? '#ccc' : colors.tint,
+                opacity: loading ? 0.7 : 1
+              }
+            ]}
             onPress={handleLogin}
+            disabled={loading}
           >
             <ThemedText style={[
               styles.buttonText, 
               { color: colorScheme === 'dark' ? '#000' : '#fff' }
             ]}>
-              Log In
+              {loading ? 'Logging in...' : 'Log In'}
             </ThemedText>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.buttonSecondary, { 
-              borderColor: colors.tint,
-              backgroundColor: 'transparent'
-            }]}
+            style={[
+              styles.buttonSecondary, 
+              { 
+                borderColor: colors.tint,
+                backgroundColor: 'transparent',
+                opacity: loading ? 0.7 : 1
+              }
+            ]}
             onPress={handleSignUp}
+            disabled={loading}
           >
             <ThemedText style={[styles.buttonTextSecondary, { color: colors.tint }]}>
-              Sign Up
+              {loading ? 'Signing up...' : 'Sign Up'}
             </ThemedText>
           </TouchableOpacity>
         </View>
