@@ -3,15 +3,27 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useRef, useState } from 'react';
+import Constants from 'expo-constants';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-// Development vs Production URLs
-// For Android emulator, use your computer's IP address instead of localhost
-const AVATAR_VIEWER_URL = __DEV__ 
-  ? 'http://192.168.100.88:5173' // Your actual IP address from Vite output
-  : 'https://your-actual-vercel-url.vercel.app';
+// Smart URL detection - automatically uses the right IP
+const getAvatarViewerUrl = () => {
+  if (!__DEV__) {
+    return 'https://your-actual-vercel-url.vercel.app';
+  }
+  
+  // Get the current Expo dev server IP
+  const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
+  
+  if (debuggerHost) {
+    return `http://${debuggerHost}:5173`;
+  }
+  
+  // Fallback to your current IP
+  return 'http://10.7.27.142:5173';
+};
 
 type AvatarPart = {
   id: string;
@@ -62,6 +74,13 @@ export default function AvatarEditorScreen() {
   const webViewRef = useRef<WebView>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  
+  // Get the dynamic URL
+  const avatarViewerUrl = getAvatarViewerUrl();
+  
+  useEffect(() => {
+    console.log('🌐 Avatar Viewer URL:', avatarViewerUrl);
+  }, [avatarViewerUrl]);
 
   const sendMessageToWebView = (type: string, value: string) => {
     const message = JSON.stringify({ type, value });
@@ -98,7 +117,7 @@ export default function AvatarEditorScreen() {
           {__DEV__ ? (
             <WebView
               ref={webViewRef}
-              source={{ uri: AVATAR_VIEWER_URL }}
+              source={{ uri: avatarViewerUrl }}
               style={styles.webView}
               javaScriptEnabled={true}
               domStorageEnabled={true}
@@ -110,14 +129,14 @@ export default function AvatarEditorScreen() {
               )}
               onError={(error) => {
                 console.error('WebView error:', error);
-                console.error('Trying to load:', AVATAR_VIEWER_URL);
+                console.error('Trying to load:', avatarViewerUrl);
               }}
               onHttpError={(syntheticEvent) => {
                 const { nativeEvent } = syntheticEvent;
                 console.error('HTTP Error:', nativeEvent.statusCode, nativeEvent.url);
               }}
               onLoadStart={() => {
-                console.log('WebView started loading:', AVATAR_VIEWER_URL);
+                console.log('WebView started loading:', avatarViewerUrl);
               }}
               onLoadEnd={() => {
                 console.log('WebView finished loading');
