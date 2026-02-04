@@ -16,7 +16,7 @@ export default function LoginScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   // API Base URL - use your computer's IP for mobile testing
-  const API_BASE_URL = 'http://10.7.15.239:5000/api';
+  const API_BASE_URL = 'http://192.168.100.88:5000/api';
 
   const handleLogin = async () => {
     console.log('Login button clicked!', { email, password });
