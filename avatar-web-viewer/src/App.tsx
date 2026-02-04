@@ -49,24 +49,6 @@ function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0 }}>
-      {/* Debug info */}
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        left: 10,
-        zIndex: 1000,
-        background: 'rgba(0,0,0,0.7)',
-        color: 'white',
-        padding: '10px',
-        borderRadius: '5px',
-        fontSize: '12px',
-        fontFamily: 'monospace'
-      }}>
-        <div>Top: {topTexture}</div>
-        <div>Pants: {pantsTexture}</div>
-        <div>Shoes: {shoesTexture}</div>
-      </div>
-
       {/* 3D Scene */}
       <Scene 
         topTexture={topTexture}
