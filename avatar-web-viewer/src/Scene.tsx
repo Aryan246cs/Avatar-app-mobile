@@ -1,18 +1,35 @@
 import { ContactShadows, Environment, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
-import { Avatar } from './Avatar';
+import { AvatarCustomizer, type BodyType } from './AvatarCustomizer';
 
 interface SceneProps {
+  bodyType: BodyType;
   topTexture: string;
   pantsTexture: string;
   shoesTexture: string;
+  eyesTexture: string;
+  hairTexture: string;
+  visibleParts?: {
+    hair?: boolean;
+    top?: boolean;
+    pants?: boolean;
+    shoes?: boolean;
+  };
 }
 
-export function Scene({ topTexture, pantsTexture, shoesTexture }: SceneProps) {
+export function Scene({ 
+  bodyType,
+  topTexture, 
+  pantsTexture, 
+  shoesTexture,
+  eyesTexture,
+  hairTexture,
+  visibleParts 
+}: SceneProps) {
   return (
     <div style={{ width: '100%', height: '100vh', background: '#f8f9fa' }}>
       <Canvas
-        camera={{ position: [0, 1.2, 2.8], fov: 45 }}
+        camera={{ position: [0, 0.2, 4.5], fov: 45 }}
         shadows
       >
         {/* Lighting */}
@@ -28,11 +45,15 @@ export function Scene({ topTexture, pantsTexture, shoesTexture }: SceneProps) {
         {/* Environment for reflections */}
         <Environment preset="studio" />
         
-        {/* Avatar with texture swapping */}
-        <Avatar 
+        {/* Avatar with full customization (female.glb by default) */}
+        <AvatarCustomizer 
+          bodyType={bodyType}
           topTexture={topTexture}
           pantsTexture={pantsTexture}
           shoesTexture={shoesTexture}
+          eyesTexture={eyesTexture}
+          hairTexture={hairTexture}
+          visibleParts={visibleParts}
         />
         
         {/* Ground shadow */}
@@ -48,10 +69,11 @@ export function Scene({ topTexture, pantsTexture, shoesTexture }: SceneProps) {
         <OrbitControls
           enablePan={false}
           enableZoom={true}
-          minDistance={1.5}
-          maxDistance={8}
-          minPolarAngle={Math.PI / 6}
-          maxPolarAngle={Math.PI - Math.PI / 6}
+          minDistance={3}
+          maxDistance={7}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI}
+          target={[0, 0.2, 0]}
         />
       </Canvas>
     </div>

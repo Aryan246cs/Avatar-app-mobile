@@ -5,8 +5,12 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Constants from 'expo-constants';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const COLLAPSED_HEIGHT = 180;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 // Smart URL detection - automatically uses the right IP
 const getAvatarViewerUrl = () => {
@@ -26,16 +30,32 @@ const getAvatarViewerUrl = () => {
   return 'http://192.168.100.88:5173';
 };
 
-// Avatar configuration types
-interface AvatarState {
-  base: string;
-  skin: string;
-  top: string | null;
-  topTexture: string;
-  jacket: string | null;
-  bottom: string;
-  shoes: string;
-}
+type BodyType = 'female' | 'female1' | 'female2' | 'female3' | 'male' | 'male1' | 'male2' | 'male3';
+
+type BodyOption = {
+  id: BodyType;
+  name: string;
+  gender: 'female' | 'male';
+  size: 'slim' | 'average' | 'athletic' | 'heavy';
+};
+
+const bodyOptions: BodyOption[] = [
+  { id: 'female', name: 'Female', gender: 'female', size: 'slim' },
+  { id: 'female1', name: 'Female 1', gender: 'female', size: 'average' },
+  { id: 'female2', name: 'Female 2', gender: 'female', size: 'athletic' },
+  { id: 'female3', name: 'Female 3', gender: 'female', size: 'heavy' },
+  { id: 'male', name: 'Male', gender: 'male', size: 'slim' },
+  { id: 'male1', name: 'Male 1', gender: 'male', size: 'average' },
+  { id: 'male2', name: 'Male 2', gender: 'male', size: 'athletic' },
+  { id: 'male3', name: 'Male 3', gender: 'male', size: 'heavy' },
+];
+
+type AvatarPart = {
+  id: string;
+  name: string;
+  icon: string;
+  messageType: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR';
+};
 
 type CategoryType = 'base' | 'skin' | 'top' | 'jacket' | 'bottom' | 'shoes';
 
@@ -56,615 +76,353 @@ interface CategoryConfig {
   }>;
 }
 
-// Modern avatar categories configuration
-const avatarCategories: CategoryConfig[] = [
-  {
-    id: 'base',
-    name: 'Base',
-    icon: 'person.fill',
-    options: [
-      { id: 'male_avg', name: 'Male - Average' },
-      { id: 'male_tall', name: 'Male - Tall' },
-      { id: 'female_avg', name: 'Female - Average' },
-      { id: 'female_short', name: 'Female - Short' },
-    ],
-  },
-  {
-    id: 'skin',
-    name: 'Skin',
-    icon: 'paintpalette.fill',
-    options: [
-      { id: 'skin_light', name: 'Light', color: '#fdbcb4' },
-      { id: 'skin_medium', name: 'Medium', color: '#e0ac69' },
-      { id: 'skin_tan', name: 'Tan', color: '#c68642' },
-      { id: 'skin_dark', name: 'Dark', color: '#8d5524' },
-    ],
-  },
-  {
-    id: 'top',
-    name: 'Top',
-    icon: 'tshirt.fill',
-    options: [
-      { 
-        id: null, 
-        name: 'None' 
-      },
-      { 
-        id: 'basic_tee', 
-        name: 'Basic Tee', 
-        color: '#2563eb',
-        colors: [
-          { id: 'top_default', name: 'Blue', color: '#2563eb' },
-          { id: 'top_black', name: 'Black', color: '#1f2937' },
-          { id: 'top_white', name: 'White', color: '#f9fafb' },
-          { id: 'top_red', name: 'Red', color: '#dc2626' },
-          { id: 'top_green', name: 'Green', color: '#16a34a' },
-        ]
-      },
-      { 
-        id: 'hoodie', 
-        name: 'Hoodie', 
-        color: '#374151',
-        colors: [
-          { id: 'top_default', name: 'Blue', color: '#2563eb' },
-          { id: 'top_black', name: 'Black', color: '#1f2937' },
-          { id: 'top_white', name: 'White', color: '#f9fafb' },
-          { id: 'top_red', name: 'Red', color: '#dc2626' },
-        ]
-      },
-      { 
-        id: 'tank_top', 
-        name: 'Tank Top', 
-        color: '#f9fafb',
-        colors: [
-          { id: 'top_white', name: 'White', color: '#f9fafb' },
-          { id: 'top_black', name: 'Black', color: '#1f2937' },
-          { id: 'top_default', name: 'Blue', color: '#2563eb' },
-        ]
-      },
-      { 
-        id: 'crop_top', 
-        name: 'Crop Top', 
-        color: '#dc2626', 
-        premium: true,
-        colors: [
-          { id: 'top_red', name: 'Red', color: '#dc2626' },
-          { id: 'top_black', name: 'Black', color: '#1f2937' },
-          { id: 'top_white', name: 'White', color: '#f9fafb' },
-        ]
-      },
-    ],
-  },
-  {
-    id: 'jacket',
-    name: 'Jacket',
-    icon: 'square.fill',
-    options: [
-      { id: null, name: 'None' },
-      { id: 'denim_jacket', name: 'Denim', color: '#1e40af' },
-      { id: 'leather_jacket', name: 'Leather', color: '#111827', premium: true },
-      { id: 'bomber_jacket', name: 'Bomber', color: '#16a34a' },
-    ],
-  },
-  {
-    id: 'bottom',
-    name: 'Bottom',
-    icon: 'rectangle.fill',
-    options: [
-      { 
-        id: 'jeans', 
-        name: 'Jeans', 
-        color: '#1e40af',
-        colors: [
-          { id: 'pants_blue', name: 'Blue', color: '#1e40af' },
-          { id: 'pants_black', name: 'Black', color: '#111827' },
-          { id: 'pants_default', name: 'Gray', color: '#374151' },
-        ]
-      },
-      { 
-        id: 'shorts', 
-        name: 'Shorts', 
-        color: '#374151',
-        colors: [
-          { id: 'pants_default', name: 'Gray', color: '#374151' },
-          { id: 'pants_black', name: 'Black', color: '#111827' },
-          { id: 'pants_brown', name: 'Brown', color: '#92400e' },
-        ]
-      },
-      { 
-        id: 'skirt', 
-        name: 'Skirt', 
-        color: '#111827',
-        colors: [
-          { id: 'pants_black', name: 'Black', color: '#111827' },
-          { id: 'pants_blue', name: 'Blue', color: '#1e40af' },
-          { id: 'pants_brown', name: 'Brown', color: '#92400e' },
-        ]
-      },
-      { 
-        id: 'dress_pants', 
-        name: 'Dress Pants', 
-        color: '#111827', 
-        premium: true,
-        colors: [
-          { id: 'pants_black', name: 'Black', color: '#111827' },
-          { id: 'pants_default', name: 'Gray', color: '#374151' },
-          { id: 'pants_brown', name: 'Brown', color: '#92400e' },
-        ]
-      },
-    ],
-  },
-  {
-    id: 'shoes',
-    name: 'Shoes',
-    icon: 'circle.fill',
-    options: [
-      { 
-        id: 'sneakers', 
-        name: 'Sneakers', 
-        color: '#f3f4f6',
-        colors: [
-          { id: 'shoes_white', name: 'White', color: '#f3f4f6' },
-          { id: 'shoes_black', name: 'Black', color: '#111827' },
-          { id: 'shoes_default', name: 'Brown', color: '#92400e' },
-        ]
-      },
-      { 
-        id: 'boots', 
-        name: 'Boots', 
-        color: '#78350f',
-        colors: [
-          { id: 'shoes_brown', name: 'Brown', color: '#78350f' },
-          { id: 'shoes_black', name: 'Black', color: '#111827' },
-          { id: 'shoes_default', name: 'Tan', color: '#92400e' },
-        ]
-      },
-      { 
-        id: 'heels', 
-        name: 'Heels', 
-        color: '#111827',
-        colors: [
-          { id: 'shoes_black', name: 'Black', color: '#111827' },
-          { id: 'shoes_brown', name: 'Brown', color: '#78350f' },
-          { id: 'shoes_white', name: 'White', color: '#f3f4f6' },
-        ]
-      },
-      { 
-        id: 'sandals', 
-        name: 'Sandals', 
-        color: '#92400e',
-        colors: [
-          { id: 'shoes_default', name: 'Brown', color: '#92400e' },
-          { id: 'shoes_black', name: 'Black', color: '#111827' },
-          { id: 'shoes_white', name: 'White', color: '#f3f4f6' },
-        ]
-      },
-    ],
-  },
+const avatarParts: AvatarPart[] = [
+  { id: 'eyes', name: 'Eyes', icon: 'eye.fill', messageType: 'SET_EYES' },
+  { id: 'hair', name: 'Hair', icon: 'person.fill', messageType: 'SET_HAIR' },
+  { id: 'top', name: 'Top', icon: 'tshirt.fill', messageType: 'SET_TOP' },
+  { id: 'pants', name: 'Pants', icon: 'tshirt.fill', messageType: 'SET_PANTS' },
+  { id: 'shoes', name: 'Shoes', icon: 'circle.fill', messageType: 'SET_SHOES' },
 ];
 
+const textureOptions: Record<string, TextureOption[]> = {
+  eyes: [
+    { id: 'eyes_default', name: 'Blue', value: 'eyes_default', color: '#1e3a8a' },
+    { id: 'eyes_brown', name: 'Brown', value: 'eyes_brown', color: '#78350f' },
+    { id: 'eyes_green', name: 'Green', value: 'eyes_green', color: '#15803d' },
+    { id: 'eyes_gray', name: 'Gray', value: 'eyes_gray', color: '#6b7280' },
+    { id: 'eyes_hazel', name: 'Hazel', value: 'eyes_hazel', color: '#92400e' },
+  ],
+  hair: [
+    { id: 'hair_default', name: 'Dark', value: 'hair_default', color: '#1f2937' },
+    { id: 'hair_black', name: 'Black', value: 'hair_black', color: '#000000' },
+    { id: 'hair_brown', name: 'Brown', value: 'hair_brown', color: '#78350f' },
+    { id: 'hair_blonde', name: 'Blonde', value: 'hair_blonde', color: '#fbbf24' },
+    { id: 'hair_red', name: 'Red', value: 'hair_red', color: '#dc2626' },
+    { id: 'hair_white', name: 'White', value: 'hair_white', color: '#f3f4f6' },
+  ],
+  top: [
+    { id: 'top_default', name: 'Blue', value: 'top_default', color: '#4169e1' },
+    { id: 'top_black', name: 'Black', value: 'top_black', color: '#000000' },
+    { id: 'top_white', name: 'White', value: 'top_white', color: '#ffffff' },
+    { id: 'top_red', name: 'Red', value: 'top_red', color: '#dc2626' },
+    { id: 'top_green', name: 'Green', value: 'top_green', color: '#16a34a' },
+  ],
+  pants: [
+    { id: 'pants_default', name: 'Gray', value: 'pants_default', color: '#2e2e2e' },
+    { id: 'pants_blue', name: 'Navy', value: 'pants_blue', color: '#000080' },
+    { id: 'pants_black', name: 'Black', value: 'pants_black', color: '#000000' },
+    { id: 'pants_brown', name: 'Brown', value: 'pants_brown', color: '#8b4513' },
+    { id: 'pants_gray', name: 'Gray', value: 'pants_gray', color: '#374151' },
+  ],
+  shoes: [
+    { id: 'shoes_default', name: 'Brown', value: 'shoes_default', color: '#654321' },
+    { id: 'shoes_black', name: 'Black', value: 'shoes_black', color: '#000000' },
+    { id: 'shoes_white', name: 'White', value: 'shoes_white', color: '#ffffff' },
+    { id: 'shoes_brown', name: 'Brown', value: 'shoes_brown', color: '#92400e' },
+  ],
+};
+
 export default function AvatarEditorScreen() {
-  const [activeCategory, setActiveCategory] = useState<CategoryType>('top');
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [avatarState, setAvatarState] = useState<AvatarState>({
-    base: 'female_avg',
-    skin: 'skin_medium',
-    top: 'basic_tee',
-    topTexture: 'top_default',
-    jacket: null,
-    bottom: 'jeans',
-    shoes: 'sneakers',
+  const [selectedBody, setSelectedBody] = useState<BodyType>('female');
+  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('female');
+  const [selectedPart, setSelectedPart] = useState<string>('eyes');
+  const [selectedTextures, setSelectedTextures] = useState({
+    eyes: 'eyes_default',
+    hair: 'hair_default',
+    top: 'top_default',
+    pants: 'pants_default',
+    shoes: 'shoes_default',
   });
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const webViewRef = useRef<WebView>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const panelHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
+  
+  // Get the dynamic URL
   const avatarViewerUrl = getAvatarViewerUrl();
   
   useEffect(() => {
     console.log('🌐 Avatar Viewer URL:', avatarViewerUrl);
   }, [avatarViewerUrl]);
 
+  const togglePanel = () => {
+    const toValue = isExpanded ? COLLAPSED_HEIGHT : EXPANDED_HEIGHT;
+    Animated.spring(panelHeight, {
+      toValue,
+      useNativeDriver: false,
+      tension: 50,
+      friction: 8,
+    }).start();
+    setIsExpanded(!isExpanded);
+  };
+
   const sendMessageToWebView = (type: string, value: string) => {
     const message = JSON.stringify({ type, value });
     webViewRef.current?.postMessage(message);
   };
 
-  const updateAvatarState = (updates: Partial<AvatarState>) => {
-    setAvatarState(prev => ({ ...prev, ...updates }));
-    
-    // Send updates to WebView with proper texture mapping
-    Object.entries(updates).forEach(([key, value]) => {
-      if (key === 'top' || key === 'topTexture') {
-        const textureValue = key === 'topTexture' ? value : 'top_default';
-        sendMessageToWebView('SET_TOP', textureValue as string);
-      }
-      if (key === 'bottom') {
-        const textureMap: { [key: string]: string } = {
-          'jeans': 'pants_blue',
-          'shorts': 'pants_default',
-          'skirt': 'pants_black',
-          'dress_pants': 'pants_black'
-        };
-        sendMessageToWebView('SET_PANTS', textureMap[value || ''] || 'pants_default');
-      }
-      if (key === 'shoes') {
-        const textureMap: { [key: string]: string } = {
-          'sneakers': 'shoes_white',
-          'boots': 'shoes_brown',
-          'heels': 'shoes_black',
-          'sandals': 'shoes_default'
-        };
-        sendMessageToWebView('SET_SHOES', textureMap[value || ''] || 'shoes_default');
-      }
-    });
+  const handleBodySelect = (bodyType: BodyType) => {
+    setSelectedBody(bodyType);
+    sendMessageToWebView('SET_BODY', bodyType);
+    console.log('🔄 Body type changed to:', bodyType);
   };
 
-  const handleOptionSelect = (categoryId: CategoryType, optionId: string | null) => {
-    console.log('🎯 Option selected:', categoryId, optionId);
-    
-    // Update the avatar state first
-    const updates: Partial<AvatarState> = {};
-    (updates as any)[categoryId] = optionId;
-    updateAvatarState(updates);
-    
-    // Check if this option has colors
-    const selectedOption = avatarCategories
-      .find(cat => cat.id === categoryId)
-      ?.options.find(opt => opt.id === optionId);
-    
-    console.log('🎨 Selected option:', selectedOption);
-    console.log('🎨 Has colors:', selectedOption?.colors?.length || 0);
-    
-    if (selectedOption?.colors && selectedOption.colors.length > 0) {
-      console.log('✅ Showing color picker for:', optionId);
-      setSelectedItem(optionId);
-      setShowColorPicker(true);
-    } else {
-      console.log('❌ No colors available, hiding color picker');
-      setShowColorPicker(false);
-      setSelectedItem(null);
+  const handleTextureSelect = (textureValue: string) => {
+    const part = avatarParts.find(p => p.id === selectedPart);
+    if (part) {
+      setSelectedTextures(prev => ({
+        ...prev,
+        [selectedPart]: textureValue
+      }));
+      sendMessageToWebView(part.messageType, textureValue);
     }
   };
 
-  const handleColorSelect = (colorId: string) => {
-    console.log('🎨 Color selected:', colorId, 'for category:', activeCategory);
-    
-    if (activeCategory === 'top') {
-      updateAvatarState({ topTexture: colorId });
-    } else if (activeCategory === 'bottom') {
-      // For bottom, we need to map the color to the texture
-      updateAvatarState({ bottom: avatarState.bottom }); // Keep the same item, just change color
-      sendMessageToWebView('SET_PANTS', colorId);
-    } else if (activeCategory === 'shoes') {
-      // For shoes, we need to map the color to the texture  
-      updateAvatarState({ shoes: avatarState.shoes }); // Keep the same item, just change color
-      sendMessageToWebView('SET_SHOES', colorId);
-    }
-  };
-
-  const resetAvatar = () => {
-    const defaultState: AvatarState = {
-      base: 'female_avg',
-      skin: 'skin_medium',
-      top: 'basic_tee',
-      topTexture: 'top_default',
-      jacket: null,
-      bottom: 'jeans',
-      shoes: 'sneakers',
-    };
-    setAvatarState(defaultState);
-    setShowColorPicker(false);
-    setSelectedItem(null);
-    sendMessageToWebView('SET_TOP', 'top_default');
-    sendMessageToWebView('SET_PANTS', 'pants_blue');
-    sendMessageToWebView('SET_SHOES', 'shoes_white');
-  };
-
-  const saveAvatar = () => {
-    console.log('💾 Saving avatar:', avatarState);
-    // Future: Save to backend
-  };
-
-  const currentCategory = avatarCategories.find(cat => cat.id === activeCategory);
-  const currentValue = avatarState[activeCategory] as string | null;
-
-  console.log('🎮 Current state:', {
-    activeCategory,
-    currentValue,
-    selectedItem,
-    showColorPicker,
-    avatarState
-  });
+  const currentOptions = textureOptions[selectedPart] || [];
+  const filteredBodyOptions = bodyOptions.filter(b => b.gender === selectedGender);
 
   return (
     <ThemedView style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { 
-        backgroundColor: colors.background,
-        borderBottomColor: colorScheme === 'dark' ? '#333' : '#e0e0e0'
-      }]}>
-        <View>
-          <ThemedText type="title" style={styles.title}>Avatar Editor</ThemedText>
-          <ThemedText style={[styles.subtitle, { color: colors.icon }]}>Create your digital identity</ThemedText>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={[styles.headerButton, { 
-              borderColor: colors.tint,
-              backgroundColor: 'transparent'
-            }]}
-            onPress={resetAvatar}
-          >
-            <ThemedText style={[styles.headerButtonText, { color: colors.tint }]}>
-              Reset
-            </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.headerButton, { 
-              backgroundColor: colors.tint,
-              borderColor: colors.tint
-            }]}
-            onPress={saveAvatar}
-          >
-            <ThemedText style={[styles.headerButtonText, { 
-              color: colorScheme === 'dark' ? '#000' : '#fff'
-            }]}>
-              Save
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+      {/* Full Screen 3D Avatar Preview */}
+      <View style={styles.avatarContainer}>
+        {__DEV__ ? (
+          <WebView
+            ref={webViewRef}
+            source={{ uri: avatarViewerUrl }}
+            style={styles.webView}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={styles.loadingContainer}>
+                <ThemedText>Loading Avatar...</ThemedText>
+              </View>
+            )}
+            onError={(error) => {
+              console.error('WebView error:', error);
+            }}
+          />
+        ) : (
+          <View style={[styles.webView, styles.placeholderContainer]}>
+            <IconSymbol name="person.fill" size={120} color={colors.tint} />
+            <ThemedText style={styles.placeholderText}>3D Avatar</ThemedText>
+          </View>
+        )}
       </View>
 
-      {/* Main Content */}
-      <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
-        {/* 3D Avatar Preview */}
-        <View style={styles.avatarPreview}>
-          {__DEV__ ? (
-            <WebView
-              ref={webViewRef}
-              source={{ uri: avatarViewerUrl }}
-              style={styles.webView}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              renderLoading={() => (
-                <View style={styles.loadingContainer}>
-                  <IconSymbol name="hourglass" size={40} color={colors.icon} />
-                  <ThemedText style={styles.loadingText}>Loading 3D Avatar...</ThemedText>
-                  <ThemedText style={[styles.loadingText, { fontSize: 12, marginTop: 8 }]}>
-                    URL: {avatarViewerUrl}
-                  </ThemedText>
-                </View>
-              )}
-              renderError={(errorName) => (
-                <View style={styles.loadingContainer}>
-                  <IconSymbol name="exclamationmark.triangle" size={40} color="#ff6b6b" />
-                  <ThemedText style={[styles.loadingText, { color: '#ff6b6b' }]}>
-                    WebView Error: {errorName}
-                  </ThemedText>
-                  <ThemedText style={[styles.loadingText, { fontSize: 12, marginTop: 8 }]}>
-                    URL: {avatarViewerUrl}
-                  </ThemedText>
-                </View>
-              )}
-              onError={(error) => {
-                console.error('❌ WebView error:', error);
-              }}
-              onHttpError={(syntheticEvent) => {
-                console.error('❌ WebView HTTP error:', syntheticEvent.nativeEvent);
-              }}
-              onLoadStart={() => {
-                console.log('🌐 WebView started loading:', avatarViewerUrl);
-              }}
-              onLoadEnd={() => {
-                console.log('✅ WebView finished loading');
-                setTimeout(() => {
-                  sendMessageToWebView('SET_TOP', 'top_default');
-                  sendMessageToWebView('SET_PANTS', 'pants_blue');
-                  sendMessageToWebView('SET_SHOES', 'shoes_white');
-                }, 1000);
-              }}
-              onMessage={(event) => {
-                console.log('📨 Message from WebView:', event.nativeEvent.data);
-              }}
-            />
-          ) : (
-            <View style={styles.placeholderContainer}>
-              <IconSymbol name="person.fill" size={80} color={colors.tint} />
-              <ThemedText style={styles.placeholderText}>3D Avatar Preview</ThemedText>
-              <ThemedText style={styles.placeholderSubtext}>
-                Deploy web viewer to see 3D avatar
-              </ThemedText>
-            </View>
-          )}
-        </View>
+      {/* Bottom Control Panel */}
+      <Animated.View 
+        style={[
+          styles.bottomPanel,
+          { 
+            height: panelHeight,
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#fff',
+          }
+        ]}
+      >
+        {/* Drag Handle */}
+        <TouchableOpacity 
+          style={styles.dragHandle}
+          onPress={togglePanel}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.dragBar, { backgroundColor: colorScheme === 'dark' ? '#444' : '#ccc' }]} />
+          <ThemedText style={styles.dragText}>
+            {isExpanded ? 'Tap to collapse' : 'Tap to expand controls'}
+          </ThemedText>
+        </TouchableOpacity>
 
-        {/* Categories */}
-        <View style={[styles.categoriesSection, { 
-          backgroundColor: colors.background,
-          borderTopColor: colorScheme === 'dark' ? '#333' : '#e0e0e0',
-          borderBottomColor: colorScheme === 'dark' ? '#333' : '#e0e0e0'
-        }]}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContainer}
-          >
-            {avatarCategories.map((category) => {
-              return (
-                <TouchableOpacity
-                  key={category.id}
-                  style={[
-                    styles.categoryButton,
-                    { 
-                      backgroundColor: activeCategory === category.id 
-                        ? (colorScheme === 'dark' ? '#ffffff' : colors.tint)
-                        : 'transparent',
-                      borderColor: activeCategory === category.id 
-                        ? (colorScheme === 'dark' ? '#ffffff' : colors.tint)
-                        : (colorScheme === 'dark' ? '#333' : '#e0e0e0')
-                    }
-                  ]}
-                  onPress={() => setActiveCategory(category.id)}
-                >
-                  <IconSymbol 
-                    name={category.icon as any} 
-                    size={20} 
-                    color={activeCategory === category.id 
-                      ? (colorScheme === 'dark' ? '#000000' : '#ffffff')
-                      : colors.icon
-                    } 
-                  />
-                  <ThemedText 
-                    style={styles.categoryButtonText}
-                    lightColor={activeCategory === category.id ? '#ffffff' : colors.text}
-                    darkColor={activeCategory === category.id ? '#000000' : colors.text}
-                  >
-                    {category.name}
-                  </ThemedText>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {/* Options Grid */}
-        <View style={[styles.optionsSection, { backgroundColor: colors.background }]}>
-          <View style={styles.optionsHeader}>
-            <ThemedText type="subtitle" style={[styles.sectionTitle, { color: colors.text }]}>
-              {showColorPicker ? `${currentCategory?.name} Colors` : currentCategory?.name}
-            </ThemedText>
-            <ThemedText style={[styles.sectionSubtitle, { color: colors.icon }]}>
-              {showColorPicker ? 'Choose a color' : 'Choose your style'}
-            </ThemedText>
-            {showColorPicker && (
-              <TouchableOpacity 
-                style={styles.backButton}
+        <ScrollView 
+          style={styles.panelScroll}
+          contentContainerStyle={styles.panelContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Gender Selection */}
+          <View style={styles.genderSection}>
+            <View style={styles.genderToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.genderButton,
+                  { 
+                    backgroundColor: selectedGender === 'male' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
                 onPress={() => {
-                  setShowColorPicker(false);
-                  setSelectedItem(null);
+                  setSelectedGender('male');
+                  setSelectedBody('male');
+                  handleBodySelect('male');
                 }}
               >
-                <IconSymbol name="chevron.left" size={16} color={colors.tint} />
-                <ThemedText style={[styles.backButtonText, { color: colors.tint }]}>
-                  Back to items
+                <ThemedText style={[
+                  styles.genderText,
+                  selectedGender === 'male' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  ♂ Male
                 </ThemedText>
               </TouchableOpacity>
-            )}
-            
-            {/* Debug info */}
-            <ThemedText style={{ fontSize: 10, color: colors.icon, marginTop: 8 }}>
-              Debug: showColorPicker={showColorPicker ? 'true' : 'false'}, selectedItem={selectedItem || 'null'}
+              <TouchableOpacity
+                style={[
+                  styles.genderButton,
+                  { 
+                    backgroundColor: selectedGender === 'female' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => {
+                  setSelectedGender('female');
+                  setSelectedBody('female');
+                  handleBodySelect('female');
+                }}
+              >
+                <ThemedText style={[
+                  styles.genderText,
+                  selectedGender === 'female' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  ♀ Female
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Body Type Selection with Icons */}
+          <View style={styles.quickSection}>
+            <ThemedText style={styles.sectionLabel}>Body Type</ThemedText>
+            <View style={styles.bodyIconGrid}>
+              {filteredBodyOptions.map((body) => (
+                <TouchableOpacity
+                  key={body.id}
+                  style={[
+                    styles.bodyIconButton,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: selectedBody === body.id ? colors.tint : 'transparent'
+                    },
+                    selectedBody === body.id && styles.selectedBodyIcon
+                  ]}
+                  onPress={() => handleBodySelect(body.id)}
+                >
+                  <IconSymbol 
+                    name="person.fill" 
+                    size={body.size === 'slim' ? 28 : body.size === 'average' ? 32 : body.size === 'athletic' ? 36 : 40} 
+                    color={selectedBody === body.id ? colors.tint : colors.icon} 
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Part Selection Tabs */}
+          <View style={styles.tabSection}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabScroll}
+            >
+              {avatarParts.map((part) => (
+                <TouchableOpacity
+                  key={part.id}
+                  style={[
+                    styles.tabButton,
+                    { 
+                      backgroundColor: selectedPart === part.id 
+                        ? colors.tint 
+                        : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                    }
+                  ]}
+                  onPress={() => setSelectedPart(part.id)}
+                >
+                  <IconSymbol 
+                    name={part.icon as any} 
+                    size={20} 
+                    color={selectedPart === part.id ? '#fff' : colors.icon} 
+                  />
+                  <ThemedText style={[
+                    styles.tabText,
+                    selectedPart === part.id && { color: '#fff', fontWeight: '700' }
+                  ]}>
+                    {part.name}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Color Options */}
+          <View style={styles.colorSection}>
+            <ThemedText style={styles.colorLabel}>
+              Choose Color
             </ThemedText>
+            <View style={styles.colorGrid}>
+              {currentOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.colorButton,
+                    { 
+                      borderColor: selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value 
+                        ? colors.tint 
+                        : 'transparent'
+                    },
+                    selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value && styles.selectedColor
+                  ]}
+                  onPress={() => handleTextureSelect(option.value)}
+                >
+                  <View style={[styles.colorCircle, { backgroundColor: option.color }]} />
+                  <ThemedText style={styles.colorName}>{option.name}</ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          
-          <View style={styles.optionsGrid}>
-            {showColorPicker ? (
-              // Show color options for selected item
-              (() => {
-                console.log('🎨 Rendering color picker...');
-                const selectedOption = currentCategory?.options.find(opt => opt.id === selectedItem);
-                console.log('🎨 Found option:', selectedOption?.name, 'with', selectedOption?.colors?.length, 'colors');
-                
-                if (!selectedOption?.colors) {
-                  return [
-                    <ThemedText key="no-colors" style={{ color: colors.text, textAlign: 'center', width: '100%' }}>
-                      No colors available
-                    </ThemedText>
-                  ];
-                }
-                
-                return selectedOption.colors.map((colorOption) => {
-                  const isSelected = activeCategory === 'top' && avatarState.topTexture === colorOption.id;
-                  
-                  return (
-                    <TouchableOpacity
-                      key={colorOption.id}
-                      style={[
-                        styles.optionCard,
-                        { 
-                          backgroundColor: colorScheme === 'dark' ? '#1f1f1f' : '#f8f9fa',
-                          borderColor: isSelected ? colors.tint : (colorScheme === 'dark' ? '#333' : '#e0e0e0')
-                        }
-                      ]}
-                      onPress={() => handleColorSelect(colorOption.id)}
-                    >
-                      <View style={[
-                        styles.optionPreview,
-                        { backgroundColor: colorOption.color }
-                      ]}>
-                        {isSelected && (
-                          <View style={[styles.selectedBadge, { backgroundColor: colors.tint }]}>
-                            <IconSymbol name="checkmark" size={12} color="#fff" />
-                          </View>
-                        )}
-                      </View>
-                      <ThemedText style={[
-                        styles.optionName,
-                        { 
-                          color: isSelected ? colors.tint : colors.text,
-                          fontWeight: isSelected ? '600' : '500'
-                        }
-                      ]}>
-                        {colorOption.name}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  );
+
+          {/* Action Buttons */}
+          <View style={styles.actionSection}>
+            <TouchableOpacity 
+              style={[styles.resetButton, { 
+                borderColor: colors.tint,
+              }]}
+              onPress={() => {
+                setSelectedGender('female');
+                setSelectedBody('female');
+                setSelectedTextures({
+                  eyes: 'eyes_default',
+                  hair: 'hair_default',
+                  top: 'top_default',
+                  pants: 'pants_default',
+                  shoes: 'shoes_default',
                 });
-              })()
-            ) : (
-              // Show clothing/accessory options
-              currentCategory?.options.map((option) => {
-                return (
-                  <TouchableOpacity
-                    key={option.id || 'none'}
-                    style={[
-                      styles.optionCard,
-                      { 
-                        backgroundColor: colorScheme === 'dark' ? '#1f1f1f' : '#f8f9fa',
-                        borderColor: currentValue === option.id ? colors.tint : (colorScheme === 'dark' ? '#333' : '#e0e0e0')
-                      }
-                    ]}
-                    onPress={() => handleOptionSelect(activeCategory, option.id)}
-                  >
-                    <View style={[
-                      styles.optionPreview,
-                      { backgroundColor: option.color || (colorScheme === 'dark' ? '#333' : '#e0e0e0') }
-                    ]}>
-                      {option.premium && (
-                        <View style={styles.premiumBadge}>
-                          <ThemedText style={styles.premiumText}>✨</ThemedText>
-                        </View>
-                      )}
-                      {currentValue === option.id && (
-                        <View style={[styles.selectedBadge, { backgroundColor: colors.tint }]}>
-                          <IconSymbol name="checkmark" size={12} color="#fff" />
-                        </View>
-                      )}
-                      {option.colors && option.colors.length > 0 && (
-                        <View style={styles.colorIndicator}>
-                          <IconSymbol name="paintpalette.fill" size={10} color="#fff" />
-                        </View>
-                      )}
-                    </View>
-                    <ThemedText style={[
-                      styles.optionName,
-                      { 
-                        color: currentValue === option.id ? colors.tint : colors.text,
-                        fontWeight: currentValue === option.id ? '600' : '500'
-                      }
-                    ]}>
-                      {option.name}
-                    </ThemedText>
-                  </TouchableOpacity>
-                );
-              }) || []
-            )}
+                sendMessageToWebView('SET_BODY', 'female');
+                sendMessageToWebView('SET_EYES', 'eyes_default');
+                sendMessageToWebView('SET_HAIR', 'hair_default');
+                sendMessageToWebView('SET_TOP', 'top_default');
+                sendMessageToWebView('SET_PANTS', 'pants_default');
+                sendMessageToWebView('SET_SHOES', 'shoes_default');
+              }}
+            >
+              <ThemedText style={[styles.resetButtonText, { color: colors.tint }]}>
+                Reset All
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.saveButton, { backgroundColor: colors.tint }]}
+              onPress={() => {
+                console.log('Saving avatar:', selectedTextures);
+              }}
+            >
+              <ThemedText style={[
+                styles.saveButtonText, 
+                { color: colorScheme === 'dark' ? '#000' : '#fff' }
+              ]}>
+                Save Avatar
+              </ThemedText>
+            </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </Animated.View>
     </ThemedView>
   );
 }
@@ -673,47 +431,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  headerButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  headerButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  mainContent: {
+  // Full screen avatar
+  avatarContainer: {
     flex: 1,
-  },
-  avatarPreview: {
-    height: 300,
-    margin: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#f5f5f5',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   webView: {
     flex: 1,
@@ -722,137 +447,191 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 16,
-    opacity: 0.7,
+    backgroundColor: '#f5f5f5',
   },
   placeholderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    backgroundColor: '#f5f5f5',
   },
   placeholderText: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 20,
+  },
+  // Bottom panel
+  bottomPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+  },
+  dragHandle: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingTop: 8,
+  },
+  dragBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  dragText: {
+    fontSize: 11,
+    opacity: 0.5,
+  },
+  panelScroll: {
+    flex: 1,
+  },
+  panelContent: {
+    padding: 20,
+    paddingTop: 0,
+    paddingBottom: 40,
+  },
+  // Gender selection
+  genderSection: {
+    marginBottom: 16,
+  },
+  genderToggle: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderText: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  placeholderSubtext: {
-    fontSize: 14,
-    opacity: 0.6,
-    textAlign: 'center',
+  // Quick body selection
+  quickSection: {
+    marginBottom: 20,
   },
-  categoriesSection: {
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+    opacity: 0.7,
   },
-  categoriesContainer: {
-    paddingHorizontal: 20,
+  bodyIconGrid: {
+    flexDirection: 'row',
     gap: 12,
+    justifyContent: 'space-between',
   },
-  categoryButton: {
+  bodyIconButton: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+  },
+  selectedBodyIcon: {
+    borderWidth: 4,
+    elevation: 3,
+  },
+  // Tab section
+  tabSection: {
+    marginBottom: 20,
+  },
+  tabScroll: {
+    gap: 10,
+    paddingRight: 20,
+  },
+  tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
     gap: 8,
-    minWidth: 100,
   },
-  categoryButtonText: {
+  tabText: {
     fontSize: 14,
     fontWeight: '600',
   },
-  optionsSection: {
-    padding: 20,
-    paddingBottom: 100, // Extra padding for bottom navigation
-  },
-  optionsHeader: {
+  // Color section
+  colorSection: {
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 20,
+  colorLabel: {
+    fontSize: 15,
     fontWeight: '700',
+    marginBottom: 12,
   },
-  sectionSubtitle: {
-    fontSize: 14,
-    opacity: 0.6,
-    marginTop: 4,
-  },
-  optionsGrid: {
+  colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
     justifyContent: 'space-between',
   },
-  optionCard: {
-    width: '47%',
-    borderRadius: 16,
-    padding: 16,
+  colorButton: {
     alignItems: 'center',
-    borderWidth: 2,
-    marginBottom: 8,
-  },
-  optionPreview: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    marginBottom: 12,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  premiumBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: '#fbbf24',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  premiumText: {
-    fontSize: 10,
-  },
-  selectedBadge: {
-    position: 'absolute',
-    bottom: -6,
-    right: -6,
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  optionName: {
-    fontSize: 14,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
     gap: 6,
+    borderWidth: 3,
+    borderRadius: 12,
+    padding: 8,
   },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+  selectedColor: {
+    borderWidth: 3.5,
+    elevation: 3,
   },
-  colorIndicator: {
-    position: 'absolute',
-    top: -6,
-    left: -6,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 8,
-    width: 16,
-    height: 16,
+  colorCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  colorName: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  // Actions
+  actionSection: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  resetButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2.5,
+  },
+  resetButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  saveButton: {
+    flex: 2,
+    height: 50,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
