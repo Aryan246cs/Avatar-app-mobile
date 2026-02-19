@@ -15,12 +15,12 @@ export function Avatar({ topTexture, pantsTexture, shoesTexture }: AvatarProps) 
   const { scene } = useGLTF('/untitled.glb');
   
   // Load textures using data URLs
-  const topTex = useTexture(TEXTURES[topTexture as keyof typeof TEXTURES]);
-  const pantsTex = useTexture(TEXTURES[pantsTexture as keyof typeof TEXTURES]);
-  const shoesTex = useTexture(TEXTURES[shoesTexture as keyof typeof TEXTURES]);
+  const topTex = useTexture(TEXTURES[topTexture as keyof typeof TEXTURES] || TEXTURES.top_default);
+  const pantsTex = useTexture(TEXTURES[pantsTexture as keyof typeof TEXTURES] || TEXTURES.pants_default);
+  const shoesTex = useTexture(TEXTURES[shoesTexture as keyof typeof TEXTURES] || TEXTURES.shoes_default);
 
   // Auto-rotate the avatar
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * 0.3;
     }
@@ -29,13 +29,10 @@ export function Avatar({ topTexture, pantsTexture, shoesTexture }: AvatarProps) 
   useEffect(() => {
     if (!scene) return;
 
-    console.log('🎨 APPLYING TEXTURES...');
-    console.log('Top:', topTexture, 'Pants:', pantsTexture, 'Shoes:', shoesTexture);
-
     // Clone the scene to avoid modifying the original
     const clonedScene = scene.clone();
     
-    // Traverse and update textures using EXACT mesh names
+    // Traverse and update textures using pattern matching for Wolf3D names
     clonedScene.traverse((node) => {
       if (node instanceof THREE.Mesh) {
         // Ensure material exists and clone it to avoid shared materials
@@ -43,29 +40,22 @@ export function Avatar({ topTexture, pantsTexture, shoesTexture }: AvatarProps) 
           const material = node.material.clone();
           node.material = material;
           
-          // Apply textures based on EXACT mesh names from your GLB
-          switch (node.name) {
-            case 'Top':
-              if ('map' in material) {
-                (material as THREE.MeshStandardMaterial).map = topTex;
-                material.needsUpdate = true;
-                console.log('✅ Applied TOP texture to:', node.name);
-              }
-              break;
-            case 'Pants':
-              if ('map' in material) {
-                (material as THREE.MeshStandardMaterial).map = pantsTex;
-                material.needsUpdate = true;
-                console.log('✅ Applied PANTS texture to:', node.name);
-              }
-              break;
-            case 'Shoes':
-              if ('map' in material) {
-                (material as THREE.MeshStandardMaterial).map = shoesTex;
-                material.needsUpdate = true;
-                console.log('✅ Applied SHOES texture to:', node.name);
-              }
-              break;
+          // Apply textures based on mesh name patterns (Wolf3D format)
+          if (node.name.includes('Outfit_Top') || node.name === 'Top') {
+            if ('map' in material) {
+              (material as THREE.MeshStandardMaterial).map = topTex;
+              material.needsUpdate = true;
+            }
+          } else if (node.name.includes('Outfit_Bottom') || node.name === 'Pants') {
+            if ('map' in material) {
+              (material as THREE.MeshStandardMaterial).map = pantsTex;
+              material.needsUpdate = true;
+            }
+          } else if (node.name.includes('Outfit_Footwear') || node.name === 'Shoes') {
+            if ('map' in material) {
+              (material as THREE.MeshStandardMaterial).map = shoesTex;
+              material.needsUpdate = true;
+            }
           }
         }
       }
@@ -79,7 +69,7 @@ export function Avatar({ topTexture, pantsTexture, shoesTexture }: AvatarProps) 
   }, [scene, topTex, pantsTex, shoesTex]);
 
   return (
-    <group ref={groupRef} position={[0, -0.8, 0]} scale={[1, 1, 1]} />
+    <group ref={groupRef} position={[0, -1.2, 0]} scale={[1.2, 1.2, 1.2]} />
   );
 }
 

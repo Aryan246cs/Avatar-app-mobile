@@ -18,15 +18,16 @@ const getAvatarViewerUrl = () => {
     return 'https://your-actual-vercel-url.vercel.app';
   }
   
-  // Get the current Expo dev server IP
+  // Try to get the debugger host from Expo
   const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
-  
   if (debuggerHost) {
+    console.log('🌐 Using debugger host:', debuggerHost);
     return `http://${debuggerHost}:5173`;
   }
   
-  // Fallback to your current IP
-  return 'http://10.7.27.142:5173';
+  // Fallback to the current network IP
+  console.log('🌐 Using fallback IP: 192.168.100.88');
+  return 'http://192.168.100.88:5173';
 };
 
 type BodyType = 'female' | 'female1' | 'female2' | 'female3' | 'male' | 'male1' | 'male2' | 'male3';
@@ -56,12 +57,24 @@ type AvatarPart = {
   messageType: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR';
 };
 
-type TextureOption = {
-  id: string;
+type CategoryType = 'base' | 'skin' | 'top' | 'jacket' | 'bottom' | 'shoes';
+
+interface CategoryConfig {
+  id: CategoryType;
   name: string;
-  value: string;
-  color: string;
-};
+  icon: string;
+  options: Array<{
+    id: string | null;
+    name: string;
+    color?: string;
+    premium?: boolean;
+    colors?: Array<{
+      id: string;
+      name: string;
+      color: string;
+    }>;
+  }>;
+}
 
 const avatarParts: AvatarPart[] = [
   { id: 'eyes', name: 'Eyes', icon: 'eye.fill', messageType: 'SET_EYES' },
@@ -437,6 +450,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   placeholderContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
@@ -561,7 +575,8 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
+    justifyContent: 'space-between',
   },
   colorButton: {
     alignItems: 'center',
