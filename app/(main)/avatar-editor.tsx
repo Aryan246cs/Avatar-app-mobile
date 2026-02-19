@@ -5,8 +5,12 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Constants from 'expo-constants';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const COLLAPSED_HEIGHT = 180;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 // Smart URL detection - automatically uses the right IP
 const getAvatarViewerUrl = () => {
@@ -25,11 +29,31 @@ const getAvatarViewerUrl = () => {
   return 'http://10.7.27.142:5173';
 };
 
+type BodyType = 'female' | 'female1' | 'female2' | 'female3' | 'male' | 'male1' | 'male2' | 'male3';
+
+type BodyOption = {
+  id: BodyType;
+  name: string;
+  gender: 'female' | 'male';
+  size: 'slim' | 'average' | 'athletic' | 'heavy';
+};
+
+const bodyOptions: BodyOption[] = [
+  { id: 'female', name: 'Female', gender: 'female', size: 'slim' },
+  { id: 'female1', name: 'Female 1', gender: 'female', size: 'average' },
+  { id: 'female2', name: 'Female 2', gender: 'female', size: 'athletic' },
+  { id: 'female3', name: 'Female 3', gender: 'female', size: 'heavy' },
+  { id: 'male', name: 'Male', gender: 'male', size: 'slim' },
+  { id: 'male1', name: 'Male 1', gender: 'male', size: 'average' },
+  { id: 'male2', name: 'Male 2', gender: 'male', size: 'athletic' },
+  { id: 'male3', name: 'Male 3', gender: 'male', size: 'heavy' },
+];
+
 type AvatarPart = {
   id: string;
   name: string;
   icon: string;
-  messageType: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES';
+  messageType: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR';
 };
 
 type TextureOption = {
@@ -40,40 +64,68 @@ type TextureOption = {
 };
 
 const avatarParts: AvatarPart[] = [
+  { id: 'eyes', name: 'Eyes', icon: 'eye.fill', messageType: 'SET_EYES' },
+  { id: 'hair', name: 'Hair', icon: 'person.fill', messageType: 'SET_HAIR' },
   { id: 'top', name: 'Top', icon: 'tshirt.fill', messageType: 'SET_TOP' },
   { id: 'pants', name: 'Pants', icon: 'tshirt.fill', messageType: 'SET_PANTS' },
   { id: 'shoes', name: 'Shoes', icon: 'circle.fill', messageType: 'SET_SHOES' },
 ];
 
 const textureOptions: Record<string, TextureOption[]> = {
+  eyes: [
+    { id: 'eyes_default', name: 'Blue', value: 'eyes_default', color: '#1e3a8a' },
+    { id: 'eyes_brown', name: 'Brown', value: 'eyes_brown', color: '#78350f' },
+    { id: 'eyes_green', name: 'Green', value: 'eyes_green', color: '#15803d' },
+    { id: 'eyes_gray', name: 'Gray', value: 'eyes_gray', color: '#6b7280' },
+    { id: 'eyes_hazel', name: 'Hazel', value: 'eyes_hazel', color: '#92400e' },
+  ],
+  hair: [
+    { id: 'hair_default', name: 'Dark', value: 'hair_default', color: '#1f2937' },
+    { id: 'hair_black', name: 'Black', value: 'hair_black', color: '#000000' },
+    { id: 'hair_brown', name: 'Brown', value: 'hair_brown', color: '#78350f' },
+    { id: 'hair_blonde', name: 'Blonde', value: 'hair_blonde', color: '#fbbf24' },
+    { id: 'hair_red', name: 'Red', value: 'hair_red', color: '#dc2626' },
+    { id: 'hair_white', name: 'White', value: 'hair_white', color: '#f3f4f6' },
+  ],
   top: [
     { id: 'top_default', name: 'Blue', value: 'top_default', color: '#4169e1' },
     { id: 'top_black', name: 'Black', value: 'top_black', color: '#000000' },
     { id: 'top_white', name: 'White', value: 'top_white', color: '#ffffff' },
+    { id: 'top_red', name: 'Red', value: 'top_red', color: '#dc2626' },
+    { id: 'top_green', name: 'Green', value: 'top_green', color: '#16a34a' },
   ],
   pants: [
     { id: 'pants_default', name: 'Gray', value: 'pants_default', color: '#2e2e2e' },
     { id: 'pants_blue', name: 'Navy', value: 'pants_blue', color: '#000080' },
+    { id: 'pants_black', name: 'Black', value: 'pants_black', color: '#000000' },
     { id: 'pants_brown', name: 'Brown', value: 'pants_brown', color: '#8b4513' },
+    { id: 'pants_gray', name: 'Gray', value: 'pants_gray', color: '#374151' },
   ],
   shoes: [
     { id: 'shoes_default', name: 'Brown', value: 'shoes_default', color: '#654321' },
     { id: 'shoes_black', name: 'Black', value: 'shoes_black', color: '#000000' },
     { id: 'shoes_white', name: 'White', value: 'shoes_white', color: '#ffffff' },
+    { id: 'shoes_brown', name: 'Brown', value: 'shoes_brown', color: '#92400e' },
   ],
 };
 
 export default function AvatarEditorScreen() {
-  const [selectedPart, setSelectedPart] = useState<string>('top');
+  const [selectedBody, setSelectedBody] = useState<BodyType>('female');
+  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('female');
+  const [selectedPart, setSelectedPart] = useState<string>('eyes');
   const [selectedTextures, setSelectedTextures] = useState({
+    eyes: 'eyes_default',
+    hair: 'hair_default',
     top: 'top_default',
     pants: 'pants_default',
     shoes: 'shoes_default',
   });
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const webViewRef = useRef<WebView>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const panelHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
   
   // Get the dynamic URL
   const avatarViewerUrl = getAvatarViewerUrl();
@@ -82,9 +134,26 @@ export default function AvatarEditorScreen() {
     console.log('🌐 Avatar Viewer URL:', avatarViewerUrl);
   }, [avatarViewerUrl]);
 
+  const togglePanel = () => {
+    const toValue = isExpanded ? COLLAPSED_HEIGHT : EXPANDED_HEIGHT;
+    Animated.spring(panelHeight, {
+      toValue,
+      useNativeDriver: false,
+      tension: 50,
+      friction: 8,
+    }).start();
+    setIsExpanded(!isExpanded);
+  };
+
   const sendMessageToWebView = (type: string, value: string) => {
     const message = JSON.stringify({ type, value });
     webViewRef.current?.postMessage(message);
+  };
+
+  const handleBodySelect = (bodyType: BodyType) => {
+    setSelectedBody(bodyType);
+    sendMessageToWebView('SET_BODY', bodyType);
+    console.log('🔄 Body type changed to:', bodyType);
   };
 
   const handleTextureSelect = (textureValue: string) => {
@@ -99,168 +168,248 @@ export default function AvatarEditorScreen() {
   };
 
   const currentOptions = textureOptions[selectedPart] || [];
+  const filteredBodyOptions = bodyOptions.filter(b => b.gender === selectedGender);
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      {/* Full Screen 3D Avatar Preview */}
+      <View style={styles.avatarContainer}>
+        {__DEV__ ? (
+          <WebView
+            ref={webViewRef}
+            source={{ uri: avatarViewerUrl }}
+            style={styles.webView}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={styles.loadingContainer}>
+                <ThemedText>Loading Avatar...</ThemedText>
+              </View>
+            )}
+            onError={(error) => {
+              console.error('WebView error:', error);
+            }}
+          />
+        ) : (
+          <View style={[styles.webView, styles.placeholderContainer]}>
+            <IconSymbol name="person.fill" size={120} color={colors.tint} />
+            <ThemedText style={styles.placeholderText}>3D Avatar</ThemedText>
+          </View>
+        )}
+      </View>
+
+      {/* Bottom Control Panel */}
+      <Animated.View 
+        style={[
+          styles.bottomPanel,
+          { 
+            height: panelHeight,
+            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#fff',
+          }
+        ]}
       >
-        <View style={styles.header}>
-          <ThemedText type="title">Avatar Editor</ThemedText>
-          <ThemedText style={styles.subtitle}>Customize your 3D avatar</ThemedText>
-        </View>
-
-        {/* 3D Avatar Preview */}
-        <View style={styles.previewContainer}>
-          {__DEV__ ? (
-            <WebView
-              ref={webViewRef}
-              source={{ uri: avatarViewerUrl }}
-              style={styles.webView}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              renderLoading={() => (
-                <View style={styles.loadingContainer}>
-                  <ThemedText>Loading 3D Avatar...</ThemedText>
-                </View>
-              )}
-              onError={(error) => {
-                console.error('WebView error:', error);
-                console.error('Trying to load:', avatarViewerUrl);
-              }}
-              onHttpError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error('HTTP Error:', nativeEvent.statusCode, nativeEvent.url);
-              }}
-              onLoadStart={() => {
-                console.log('WebView started loading:', avatarViewerUrl);
-              }}
-              onLoadEnd={() => {
-                console.log('WebView finished loading');
-              }}
-            />
-          ) : (
-            <View style={[styles.webView, styles.placeholderContainer]}>
-              <IconSymbol name="person.fill" size={80} color={colors.tint} />
-              <ThemedText style={styles.placeholderText}>3D Avatar Preview</ThemedText>
-              <ThemedText style={styles.placeholderSubtext}>
-                Deploy web viewer to see 3D avatar
-              </ThemedText>
-            </View>
-          )}
-        </View>
-
-        {/* Part Selection */}
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>Select Part</ThemedText>
-          <View style={styles.partsGrid}>
-            {avatarParts.map((part) => (
-              <TouchableOpacity
-                key={part.id}
-                style={[
-                  styles.partButton,
-                  { 
-                    backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#fff',
-                    borderColor: selectedPart === part.id ? colors.tint : (colorScheme === 'dark' ? '#333' : '#e0e0e0')
-                  },
-                  selectedPart === part.id && styles.partButtonActive
-                ]}
-                onPress={() => setSelectedPart(part.id)}
-              >
-                <IconSymbol 
-                  name={part.icon as any} 
-                  size={28} 
-                  color={selectedPart === part.id ? colors.tint : colors.icon} 
-                />
-                <ThemedText style={[
-                  styles.partButtonText,
-                  selectedPart === part.id && { color: colors.tint }
-                ]}>
-                  {part.name}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Texture Options */}
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Choose {avatarParts.find(p => p.id === selectedPart)?.name} Style
+        {/* Drag Handle */}
+        <TouchableOpacity 
+          style={styles.dragHandle}
+          onPress={togglePanel}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.dragBar, { backgroundColor: colorScheme === 'dark' ? '#444' : '#ccc' }]} />
+          <ThemedText style={styles.dragText}>
+            {isExpanded ? 'Tap to collapse' : 'Tap to expand controls'}
           </ThemedText>
-          <View style={styles.textureGrid}>
-            {currentOptions.map((option) => (
+        </TouchableOpacity>
+
+        <ScrollView 
+          style={styles.panelScroll}
+          contentContainerStyle={styles.panelContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Gender Selection */}
+          <View style={styles.genderSection}>
+            <View style={styles.genderToggle}>
               <TouchableOpacity
-                key={option.id}
                 style={[
-                  styles.textureButton,
+                  styles.genderButton,
                   { 
-                    backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#fff',
-                    borderColor: selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value 
+                    backgroundColor: selectedGender === 'male' 
                       ? colors.tint 
-                      : (colorScheme === 'dark' ? '#333' : '#e0e0e0')
-                  },
-                  selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value && styles.textureButtonActive
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
                 ]}
-                onPress={() => handleTextureSelect(option.value)}
+                onPress={() => {
+                  setSelectedGender('male');
+                  setSelectedBody('male');
+                  handleBodySelect('male');
+                }}
               >
-                <View style={[styles.colorPreview, { backgroundColor: option.color }]} />
                 <ThemedText style={[
-                  styles.textureButtonText,
-                  selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value && { color: colors.tint }
+                  styles.genderText,
+                  selectedGender === 'male' && { color: '#fff', fontWeight: '700' }
                 ]}>
-                  {option.name}
+                  ♂ Male
                 </ThemedText>
               </TouchableOpacity>
-            ))}
+              <TouchableOpacity
+                style={[
+                  styles.genderButton,
+                  { 
+                    backgroundColor: selectedGender === 'female' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => {
+                  setSelectedGender('female');
+                  setSelectedBody('female');
+                  handleBodySelect('female');
+                }}
+              >
+                <ThemedText style={[
+                  styles.genderText,
+                  selectedGender === 'female' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  ♀ Female
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.actionButtonSecondary, { 
-              borderColor: colors.tint,
-              backgroundColor: 'transparent'
-            }]}
-            onPress={() => {
-              // Reset to defaults
-              setSelectedTextures({
-                top: 'top_default',
-                pants: 'pants_default',
-                shoes: 'shoes_default',
-              });
-              sendMessageToWebView('SET_TOP', 'top_default');
-              sendMessageToWebView('SET_PANTS', 'pants_default');
-              sendMessageToWebView('SET_SHOES', 'shoes_default');
-            }}
-          >
-            <ThemedText style={[styles.actionButtonText, { color: colors.tint }]}>
-              Reset
+          {/* Body Type Selection with Icons */}
+          <View style={styles.quickSection}>
+            <ThemedText style={styles.sectionLabel}>Body Type</ThemedText>
+            <View style={styles.bodyIconGrid}>
+              {filteredBodyOptions.map((body) => (
+                <TouchableOpacity
+                  key={body.id}
+                  style={[
+                    styles.bodyIconButton,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: selectedBody === body.id ? colors.tint : 'transparent'
+                    },
+                    selectedBody === body.id && styles.selectedBodyIcon
+                  ]}
+                  onPress={() => handleBodySelect(body.id)}
+                >
+                  <IconSymbol 
+                    name="person.fill" 
+                    size={body.size === 'slim' ? 28 : body.size === 'average' ? 32 : body.size === 'athletic' ? 36 : 40} 
+                    color={selectedBody === body.id ? colors.tint : colors.icon} 
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Part Selection Tabs */}
+          <View style={styles.tabSection}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabScroll}
+            >
+              {avatarParts.map((part) => (
+                <TouchableOpacity
+                  key={part.id}
+                  style={[
+                    styles.tabButton,
+                    { 
+                      backgroundColor: selectedPart === part.id 
+                        ? colors.tint 
+                        : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                    }
+                  ]}
+                  onPress={() => setSelectedPart(part.id)}
+                >
+                  <IconSymbol 
+                    name={part.icon as any} 
+                    size={20} 
+                    color={selectedPart === part.id ? '#fff' : colors.icon} 
+                  />
+                  <ThemedText style={[
+                    styles.tabText,
+                    selectedPart === part.id && { color: '#fff', fontWeight: '700' }
+                  ]}>
+                    {part.name}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Color Options */}
+          <View style={styles.colorSection}>
+            <ThemedText style={styles.colorLabel}>
+              Choose Color
             </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.actionButton, { 
-              backgroundColor: colors.tint 
-            }]}
-            onPress={() => {
-              // Save avatar configuration
-              console.log('Saving avatar:', selectedTextures);
-              // TODO: Implement save functionality
-            }}
-          >
-            <ThemedText style={[
-              styles.actionButtonText, 
-              { color: colorScheme === 'dark' ? '#000' : '#fff' }
-            ]}>
-              Save Avatar
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <View style={styles.colorGrid}>
+              {currentOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.colorButton,
+                    { 
+                      borderColor: selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value 
+                        ? colors.tint 
+                        : 'transparent'
+                    },
+                    selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value && styles.selectedColor
+                  ]}
+                  onPress={() => handleTextureSelect(option.value)}
+                >
+                  <View style={[styles.colorCircle, { backgroundColor: option.color }]} />
+                  <ThemedText style={styles.colorName}>{option.name}</ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionSection}>
+            <TouchableOpacity 
+              style={[styles.resetButton, { 
+                borderColor: colors.tint,
+              }]}
+              onPress={() => {
+                setSelectedGender('female');
+                setSelectedBody('female');
+                setSelectedTextures({
+                  eyes: 'eyes_default',
+                  hair: 'hair_default',
+                  top: 'top_default',
+                  pants: 'pants_default',
+                  shoes: 'shoes_default',
+                });
+                sendMessageToWebView('SET_BODY', 'female');
+                sendMessageToWebView('SET_EYES', 'eyes_default');
+                sendMessageToWebView('SET_HAIR', 'hair_default');
+                sendMessageToWebView('SET_TOP', 'top_default');
+                sendMessageToWebView('SET_PANTS', 'pants_default');
+                sendMessageToWebView('SET_SHOES', 'shoes_default');
+              }}
+            >
+              <ThemedText style={[styles.resetButtonText, { color: colors.tint }]}>
+                Reset All
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.saveButton, { backgroundColor: colors.tint }]}
+              onPress={() => {
+                console.log('Saving avatar:', selectedTextures);
+              }}
+            >
+              <ThemedText style={[
+                styles.saveButtonText, 
+                { color: colorScheme === 'dark' ? '#000' : '#fff' }
+              ]}>
+                Save Avatar
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </Animated.View>
     </ThemedView>
   );
 }
@@ -269,28 +418,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
+  // Full screen avatar
+  avatarContainer: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 100,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-    marginTop: 4,
-  },
-  previewContainer: {
-    height: 300,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 32,
-    backgroundColor: '#f0f0f0',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   webView: {
     flex: 1,
@@ -299,100 +434,189 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5',
   },
   placeholderContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5',
   },
   placeholderText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 20,
   },
-  placeholderSubtext: {
-    fontSize: 14,
-    opacity: 0.6,
-    textAlign: 'center',
+  // Bottom panel
+  bottomPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
   },
-  section: {
-    marginBottom: 32,
+  dragHandle: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingTop: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
+  dragBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  dragText: {
+    fontSize: 11,
+    opacity: 0.5,
+  },
+  panelScroll: {
+    flex: 1,
+  },
+  panelContent: {
+    padding: 20,
+    paddingTop: 0,
+    paddingBottom: 40,
+  },
+  // Gender selection
+  genderSection: {
     marginBottom: 16,
   },
-  partsGrid: {
+  genderToggle: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
   },
-  partButton: {
+  genderButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Quick body selection
+  quickSection: {
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
+    opacity: 0.7,
+  },
+  bodyIconGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  bodyIconButton: {
     flex: 1,
     aspectRatio: 1,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    gap: 8,
-  },
-  partButtonActive: {
     borderWidth: 3,
   },
-  partButtonText: {
-    fontSize: 12,
+  selectedBodyIcon: {
+    borderWidth: 4,
+    elevation: 3,
+  },
+  // Tab section
+  tabSection: {
+    marginBottom: 20,
+  },
+  tabScroll: {
+    gap: 10,
+    paddingRight: 20,
+  },
+  tabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 8,
+  },
+  tabText: {
+    fontSize: 14,
     fontWeight: '600',
   },
-  textureGrid: {
+  // Color section
+  colorSection: {
+    marginBottom: 20,
+  },
+  colorLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
   },
-  textureButton: {
-    width: '30%',
-    aspectRatio: 1,
-    borderRadius: 16,
-    justifyContent: 'center',
+  colorButton: {
     alignItems: 'center',
-    borderWidth: 2,
-    gap: 8,
-    padding: 12,
-  },
-  textureButtonActive: {
+    gap: 6,
     borderWidth: 3,
+    borderRadius: 12,
+    padding: 8,
   },
-  colorPreview: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ccc',
+  selectedColor: {
+    borderWidth: 3.5,
+    elevation: 3,
   },
-  textureButtonText: {
-    fontSize: 12,
+  colorCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  colorName: {
+    fontSize: 11,
     fontWeight: '600',
-    textAlign: 'center',
   },
-  actions: {
+  // Actions
+  actionSection: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 8,
-    marginBottom: 20,
   },
-  actionButton: {
+  resetButton: {
     flex: 1,
-    height: 56,
-    borderRadius: 12,
+    height: 50,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2.5,
   },
-  actionButtonSecondary: {
-    borderWidth: 2,
+  resetButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
-  actionButtonText: {
+  saveButton: {
+    flex: 2,
+    height: 50,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  saveButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
