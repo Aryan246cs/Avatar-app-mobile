@@ -16,11 +16,9 @@ export default function LoginScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   // API Base URL - use your computer's IP for mobile testing
-  const API_BASE_URL = 'http://192.168.100.88:5000/api';
+  const API_BASE_URL = 'http://192.168.100.90:5000/api';
 
   const handleLogin = async () => {
-    console.log('Login button clicked!', { email, password });
-    
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
       return;
@@ -37,18 +35,14 @@ export default function LoginScreen() {
       });
 
       const data = await response.json();
-      console.log('Login response:', data);
 
       if (data.success) {
-        // Store token for future requests
         await setAuthToken(data.token);
-        console.log('Login successful, navigating to home...');
         router.replace('/(main)/home');
       } else {
         Alert.alert('Login Failed', data.message || 'Invalid credentials');
       }
     } catch (error) {
-      console.error('Login error:', error);
       Alert.alert('Error', 'Network error. Please check if the backend is running.');
     } finally {
       setLoading(false);
@@ -56,8 +50,6 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = async () => {
-    console.log('Signup button clicked!', { email, password });
-    
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
       return;
@@ -79,18 +71,14 @@ export default function LoginScreen() {
       });
 
       const data = await response.json();
-      console.log('Signup response:', data);
 
       if (data.success) {
-        // Store token for future requests
         await setAuthToken(data.token);
-        console.log('Signup successful, navigating to home...');
         router.replace('/(main)/home');
       } else {
         Alert.alert('Registration Failed', data.message || 'Registration failed');
       }
     } catch (error) {
-      console.error('Registration error:', error);
       Alert.alert('Error', 'Network error. Please check if the backend is running.');
     } finally {
       setLoading(false);

@@ -4,7 +4,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Constants from 'expo-constants';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -21,13 +21,11 @@ const getAvatarViewerUrl = () => {
   // Try to get the debugger host from Expo
   const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
   if (debuggerHost) {
-    console.log('🌐 Using debugger host:', debuggerHost);
     return `http://${debuggerHost}:5173`;
   }
   
   // Fallback to the current network IP
-  console.log('🌐 Using fallback IP: 192.168.100.88');
-  return 'http://192.168.100.88:5173';
+  return 'http://192.168.100.90:5173';
 };
 
 type BodyType = 'female' | 'female1' | 'female2' | 'female3' | 'male' | 'male1' | 'male2' | 'male3';
@@ -57,24 +55,12 @@ type AvatarPart = {
   messageType: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR';
 };
 
-type CategoryType = 'base' | 'skin' | 'top' | 'jacket' | 'bottom' | 'shoes';
-
-interface CategoryConfig {
-  id: CategoryType;
+type TextureOption = {
+  id: string;
   name: string;
-  icon: string;
-  options: Array<{
-    id: string | null;
-    name: string;
-    color?: string;
-    premium?: boolean;
-    colors?: Array<{
-      id: string;
-      name: string;
-      color: string;
-    }>;
-  }>;
-}
+  value: string;
+  color: string;
+};
 
 const avatarParts: AvatarPart[] = [
   { id: 'eyes', name: 'Eyes', icon: 'eye.fill', messageType: 'SET_EYES' },
@@ -142,10 +128,6 @@ export default function AvatarEditorScreen() {
   
   // Get the dynamic URL
   const avatarViewerUrl = getAvatarViewerUrl();
-  
-  useEffect(() => {
-    console.log('🌐 Avatar Viewer URL:', avatarViewerUrl);
-  }, [avatarViewerUrl]);
 
   const togglePanel = () => {
     const toValue = isExpanded ? COLLAPSED_HEIGHT : EXPANDED_HEIGHT;
@@ -166,7 +148,6 @@ export default function AvatarEditorScreen() {
   const handleBodySelect = (bodyType: BodyType) => {
     setSelectedBody(bodyType);
     sendMessageToWebView('SET_BODY', bodyType);
-    console.log('🔄 Body type changed to:', bodyType);
   };
 
   const handleTextureSelect = (textureValue: string) => {
@@ -201,7 +182,7 @@ export default function AvatarEditorScreen() {
               </View>
             )}
             onError={(error) => {
-              console.error('WebView error:', error);
+              // Handle WebView error
             }}
           />
         ) : (
@@ -410,7 +391,7 @@ export default function AvatarEditorScreen() {
             <TouchableOpacity 
               style={[styles.saveButton, { backgroundColor: colors.tint }]}
               onPress={() => {
-                console.log('Saving avatar:', selectedTextures);
+                // Save avatar configuration
               }}
             >
               <ThemedText style={[
