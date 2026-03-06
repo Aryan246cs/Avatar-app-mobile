@@ -112,12 +112,21 @@ export default function AvatarEditorScreen() {
   const [selectedBody, setSelectedBody] = useState<BodyType>('female');
   const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('female');
   const [selectedPart, setSelectedPart] = useState<string>('eyes');
+  const [selectedAccessoryCategory, setSelectedAccessoryCategory] = useState<'jacket' | 'pants' | 'hair' | 'mask' | 'suit' | 'shoes'>('jacket');
   const [selectedTextures, setSelectedTextures] = useState({
     eyes: 'eyes_default',
     hair: 'hair_default',
     top: 'top_default',
     pants: 'pants_default',
     shoes: 'shoes_default',
+  });
+  const [accessories, setAccessories] = useState({
+    jacket: null as number | null,
+    pants: null as number | null,
+    hair: null as number | null,
+    mask: null as number | null,
+    fullSuit: null as number | null,
+    shoes: null as number | null,
   });
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -159,6 +168,84 @@ export default function AvatarEditorScreen() {
       }));
       sendMessageToWebView(part.messageType, textureValue);
     }
+  };
+
+  const selectJacket = (selection: number | null) => {
+    setAccessories(prev => ({
+      ...prev,
+      jacket: selection
+    }));
+    const message = JSON.stringify({ 
+      type: 'SET_JACKET', 
+      selection: selection
+    });
+    webViewRef.current?.postMessage(message);
+    console.log('🧥 Jacket selection:', selection);
+  };
+
+  const selectPants = (selection: number | null) => {
+    setAccessories(prev => ({
+      ...prev,
+      pants: selection
+    }));
+    const message = JSON.stringify({ 
+      type: 'SET_PANTS_ACCESSORY', 
+      selection: selection
+    });
+    webViewRef.current?.postMessage(message);
+    console.log('👖 Pants selection:', selection);
+  };
+
+  const selectHair = (selection: number | null) => {
+    setAccessories(prev => ({
+      ...prev,
+      hair: selection
+    }));
+    const message = JSON.stringify({ 
+      type: 'SET_HAIR_ACCESSORY', 
+      selection: selection
+    });
+    webViewRef.current?.postMessage(message);
+    console.log('💇 Hair selection:', selection);
+  };
+
+  const selectMask = (selection: number | null) => {
+    setAccessories(prev => ({
+      ...prev,
+      mask: selection
+    }));
+    const message = JSON.stringify({ 
+      type: 'SET_MASK_ACCESSORY', 
+      selection: selection
+    });
+    webViewRef.current?.postMessage(message);
+    console.log('😷 Mask selection:', selection);
+  };
+
+  const selectFullSuit = (selection: number | null) => {
+    setAccessories(prev => ({
+      ...prev,
+      fullSuit: selection
+    }));
+    const message = JSON.stringify({ 
+      type: 'SET_FULL_SUIT', 
+      selection: selection
+    });
+    webViewRef.current?.postMessage(message);
+    console.log('👔 Full suit selection:', selection);
+  };
+
+  const selectShoes = (selection: number | null) => {
+    setAccessories(prev => ({
+      ...prev,
+      shoes: selection
+    }));
+    const message = JSON.stringify({ 
+      type: 'SET_SHOES_ACCESSORY', 
+      selection: selection
+    });
+    webViewRef.current?.postMessage(message);
+    console.log('👞 Shoes selection:', selection);
   };
 
   const currentOptions = textureOptions[selectedPart] || [];
@@ -229,7 +316,11 @@ export default function AvatarEditorScreen() {
                   { 
                     backgroundColor: selectedGender === 'male' 
                       ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5'),
+                    borderWidth: 2,
+                    borderColor: selectedGender === 'male' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#444' : '#ddd')
                   }
                 ]}
                 onPress={() => {
@@ -240,7 +331,11 @@ export default function AvatarEditorScreen() {
               >
                 <ThemedText style={[
                   styles.genderText,
-                  selectedGender === 'male' && { color: '#fff', fontWeight: '700' }
+                  { 
+                    color: selectedGender === 'male' 
+                      ? '#fff'  // White text when selected
+                      : colors.text  // Normal text color when not selected
+                  }
                 ]}>
                   ♂ Male
                 </ThemedText>
@@ -251,7 +346,11 @@ export default function AvatarEditorScreen() {
                   { 
                     backgroundColor: selectedGender === 'female' 
                       ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5'),
+                    borderWidth: 2,
+                    borderColor: selectedGender === 'female' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#444' : '#ddd')
                   }
                 ]}
                 onPress={() => {
@@ -262,7 +361,11 @@ export default function AvatarEditorScreen() {
               >
                 <ThemedText style={[
                   styles.genderText,
-                  selectedGender === 'female' && { color: '#fff', fontWeight: '700' }
+                  { 
+                    color: selectedGender === 'female' 
+                      ? '#fff'  // White text when selected
+                      : colors.text  // Normal text color when not selected
+                  }
                 ]}>
                   ♀ Female
                 </ThemedText>
@@ -360,6 +463,535 @@ export default function AvatarEditorScreen() {
             </View>
           </View>
 
+          {/* Accessories Section */}
+          <View style={styles.accessoriesSection}>
+            <ThemedText style={styles.sectionTitle}>
+              Accessories
+            </ThemedText>
+            
+            {/* Category Tabs */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryTabScroll}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.categoryTab,
+                  { 
+                    backgroundColor: selectedAccessoryCategory === 'jacket' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => setSelectedAccessoryCategory('jacket')}
+              >
+                <ThemedText style={[
+                  styles.categoryTabText,
+                  selectedAccessoryCategory === 'jacket' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  🧥 Jacket
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryTab,
+                  { 
+                    backgroundColor: selectedAccessoryCategory === 'pants' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => setSelectedAccessoryCategory('pants')}
+              >
+                <ThemedText style={[
+                  styles.categoryTabText,
+                  selectedAccessoryCategory === 'pants' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  👖 Pants
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryTab,
+                  { 
+                    backgroundColor: selectedAccessoryCategory === 'hair' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => setSelectedAccessoryCategory('hair')}
+              >
+                <ThemedText style={[
+                  styles.categoryTabText,
+                  selectedAccessoryCategory === 'hair' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  💇 Hair
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryTab,
+                  { 
+                    backgroundColor: selectedAccessoryCategory === 'mask' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => setSelectedAccessoryCategory('mask')}
+              >
+                <ThemedText style={[
+                  styles.categoryTabText,
+                  selectedAccessoryCategory === 'mask' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  😷 Mask
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryTab,
+                  { 
+                    backgroundColor: selectedAccessoryCategory === 'suit' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => setSelectedAccessoryCategory('suit')}
+              >
+                <ThemedText style={[
+                  styles.categoryTabText,
+                  selectedAccessoryCategory === 'suit' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  👔 Suit
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryTab,
+                  { 
+                    backgroundColor: selectedAccessoryCategory === 'shoes' 
+                      ? colors.tint 
+                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
+                  }
+                ]}
+                onPress={() => setSelectedAccessoryCategory('shoes')}
+              >
+                <ThemedText style={[
+                  styles.categoryTabText,
+                  selectedAccessoryCategory === 'shoes' && { color: '#fff', fontWeight: '700' }
+                ]}>
+                  👞 Shoes
+                </ThemedText>
+              </TouchableOpacity>
+            </ScrollView>
+            
+            {/* Jacket Selection */}
+            {selectedAccessoryCategory === 'jacket' && (
+            <View style={styles.selectableAccessory}>
+              <View style={styles.selectableAccessoryHeader}>
+                <ThemedText style={styles.selectableAccessoryTitle}>
+                  🧥 Jacket
+                </ThemedText>
+                <ThemedText style={styles.selectableAccessoryHint}>
+                  Choose a style
+                </ThemedText>
+              </View>
+              <View style={styles.selectionButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.jacket === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.jacket === null && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectJacket(null)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.jacket === null && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    OFF
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.jacket === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.jacket === 1 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectJacket(1)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.jacket === 1 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    1
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.jacket === 2 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.jacket === 2 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectJacket(2)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.jacket === 2 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    2
+                  </ThemedText>
+                </TouchableOpacity>
+                {selectedGender === 'female' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.selectionButtonSmall,
+                      { 
+                        backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                        borderColor: accessories.jacket === 3 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                      },
+                      accessories.jacket === 3 && styles.selectionButtonSmallActive
+                    ]}
+                    onPress={() => selectJacket(3)}
+                  >
+                    <ThemedText style={[
+                      styles.selectionButtonSmallText,
+                      accessories.jacket === 3 && { color: colors.tint, fontWeight: '700' }
+                    ]}>
+                      3
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            )}
+            
+            {/* Pants Selection */}
+            {selectedAccessoryCategory === 'pants' && (
+            <View style={styles.selectableAccessory}>
+              <View style={styles.selectableAccessoryHeader}>
+                <ThemedText style={styles.selectableAccessoryTitle}>
+                  👖 Pants
+                </ThemedText>
+                <ThemedText style={styles.selectableAccessoryHint}>
+                  Choose a style
+                </ThemedText>
+              </View>
+              <View style={styles.selectionButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.pants === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.pants === null && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectPants(null)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.pants === null && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    OFF
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.pants === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.pants === 1 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectPants(1)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.pants === 1 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    1
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.pants === 2 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.pants === 2 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectPants(2)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.pants === 2 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    2
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+            )}
+            
+            {/* Hair Selection */}
+            {selectedAccessoryCategory === 'hair' && (
+            <View style={styles.selectableAccessory}>
+              <View style={styles.selectableAccessoryHeader}>
+                <ThemedText style={styles.selectableAccessoryTitle}>
+                  💇 Hair Style
+                </ThemedText>
+                <ThemedText style={styles.selectableAccessoryHint}>
+                  Choose a style
+                </ThemedText>
+              </View>
+              <View style={styles.selectionButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.hair === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.hair === null && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectHair(null)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.hair === null && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    OFF
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.hair === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.hair === 1 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectHair(1)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.hair === 1 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    1
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+            )}
+            
+            {/* Mask Selection */}
+            {selectedAccessoryCategory === 'mask' && (
+            <View style={styles.selectableAccessory}>
+              <View style={styles.selectableAccessoryHeader}>
+                <ThemedText style={styles.selectableAccessoryTitle}>
+                  😷 Face Mask
+                </ThemedText>
+                <ThemedText style={styles.selectableAccessoryHint}>
+                  Choose a style
+                </ThemedText>
+              </View>
+              <View style={styles.selectionButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.mask === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.mask === null && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectMask(null)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.mask === null && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    OFF
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.mask === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.mask === 1 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectMask(1)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.mask === 1 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    1
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+            )}
+            
+            {/* Full Suit Selection */}
+            {selectedAccessoryCategory === 'suit' && (
+            <View style={styles.selectableAccessory}>
+              <View style={styles.selectableAccessoryHeader}>
+                <ThemedText style={styles.selectableAccessoryTitle}>
+                  👔 Full Suit
+                </ThemedText>
+                <ThemedText style={styles.selectableAccessoryHint}>
+                  Choose a style
+                </ThemedText>
+              </View>
+              <View style={styles.selectionButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.fullSuit === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.fullSuit === null && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectFullSuit(null)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.fullSuit === null && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    OFF
+                  </ThemedText>
+                </TouchableOpacity>
+                {selectedGender === 'female' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.selectionButtonSmall,
+                      { 
+                        backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                        borderColor: accessories.fullSuit === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                      },
+                      accessories.fullSuit === 1 && styles.selectionButtonSmallActive
+                    ]}
+                    onPress={() => selectFullSuit(1)}
+                  >
+                    <ThemedText style={[
+                      styles.selectionButtonSmallText,
+                      accessories.fullSuit === 1 && { color: colors.tint, fontWeight: '700' }
+                    ]}>
+                      1
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.fullSuit === 3 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.fullSuit === 3 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectFullSuit(3)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.fullSuit === 3 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    {selectedGender === 'female' ? '2' : '1'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+            )}
+            
+            {/* Shoes Selection */}
+            {selectedAccessoryCategory === 'shoes' && (
+            <View style={styles.selectableAccessory}>
+              <View style={styles.selectableAccessoryHeader}>
+                <ThemedText style={styles.selectableAccessoryTitle}>
+                  👞 Shoes
+                </ThemedText>
+                <ThemedText style={styles.selectableAccessoryHint}>
+                  Choose a style
+                </ThemedText>
+              </View>
+              <View style={styles.selectionButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.shoes === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.shoes === null && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectShoes(null)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.shoes === null && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    OFF
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.shoes === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.shoes === 1 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectShoes(1)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.shoes === 1 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    1
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.selectionButtonSmall,
+                    { 
+                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                      borderColor: accessories.shoes === 2 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
+                    },
+                    accessories.shoes === 2 && styles.selectionButtonSmallActive
+                  ]}
+                  onPress={() => selectShoes(2)}
+                >
+                  <ThemedText style={[
+                    styles.selectionButtonSmallText,
+                    accessories.shoes === 2 && { color: colors.tint, fontWeight: '700' }
+                  ]}>
+                    2
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+            )}
+          </View>
+
           {/* Action Buttons */}
           <View style={styles.actionSection}>
             <TouchableOpacity 
@@ -376,12 +1008,45 @@ export default function AvatarEditorScreen() {
                   pants: 'pants_default',
                   shoes: 'shoes_default',
                 });
+                setAccessories({
+                  jacket: null,
+                  pants: null,
+                  hair: null,
+                  mask: null,
+                  fullSuit: null,
+                  shoes: null,
+                });
                 sendMessageToWebView('SET_BODY', 'female');
                 sendMessageToWebView('SET_EYES', 'eyes_default');
                 sendMessageToWebView('SET_HAIR', 'hair_default');
                 sendMessageToWebView('SET_TOP', 'top_default');
                 sendMessageToWebView('SET_PANTS', 'pants_default');
                 sendMessageToWebView('SET_SHOES', 'shoes_default');
+                // Reset accessories
+                webViewRef.current?.postMessage(JSON.stringify({ 
+                  type: 'SET_JACKET', 
+                  selection: null
+                }));
+                webViewRef.current?.postMessage(JSON.stringify({ 
+                  type: 'SET_PANTS_ACCESSORY', 
+                  selection: null
+                }));
+                webViewRef.current?.postMessage(JSON.stringify({ 
+                  type: 'SET_HAIR_ACCESSORY', 
+                  selection: null
+                }));
+                webViewRef.current?.postMessage(JSON.stringify({ 
+                  type: 'SET_MASK_ACCESSORY', 
+                  selection: null
+                }));
+                webViewRef.current?.postMessage(JSON.stringify({ 
+                  type: 'SET_FULL_SUIT', 
+                  selection: null
+                }));
+                webViewRef.current?.postMessage(JSON.stringify({ 
+                  type: 'SET_SHOES_ACCESSORY', 
+                  selection: null
+                }));
               }}
             >
               <ThemedText style={[styles.resetButtonText, { color: colors.tint }]}>
@@ -492,6 +1157,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
   },
   genderText: {
     fontSize: 16,
@@ -579,6 +1245,98 @@ const styles = StyleSheet.create({
   },
   colorName: {
     fontSize: 11,
+    fontWeight: '600',
+  },
+  // Accessories section
+  accessoriesSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 14,
+  },
+  // Category tabs
+  categoryTabScroll: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  categoryTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Simple accessories (Jacket & Pants)
+  simpleAccessoriesRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  simpleAccessoryButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 3,
+    gap: 6,
+  },
+  simpleAccessoryActive: {
+    borderWidth: 3.5,
+    elevation: 2,
+  },
+  simpleAccessoryEmoji: {
+    fontSize: 28,
+  },
+  simpleAccessoryLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Selectable accessories (Full Suit & Shoes)
+  selectableAccessory: {
+    marginBottom: 14,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+  },
+  selectableAccessoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  selectableAccessoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  selectableAccessoryHint: {
+    fontSize: 11,
+    opacity: 0.5,
+    fontStyle: 'italic',
+  },
+  selectionButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  selectionButtonSmall: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+  },
+  selectionButtonSmallActive: {
+    borderWidth: 3,
+    elevation: 2,
+  },
+  selectionButtonSmallText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   // Actions

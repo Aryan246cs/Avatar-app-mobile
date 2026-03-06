@@ -1,77 +1,253 @@
-# Avatar App 🎭
+# Avatar Customization App
 
-A mobile-first avatar creation app built with React Native and Expo.
+A full-stack mobile application for 3D avatar customization with real-time rendering, built with React Native, Three.js, and MongoDB.
 
 ## Features
 
-- **User Authentication** - Simple login/signup flow
-- **Avatar Editor** - Customize your digital identity
-- **Item Selection** - Browse and apply clothes, hair, and accessories
-- **AI Generation** - Generate custom items with AI (coming soon)
-- **Dark Mode** - Full light and dark theme support
+- 🎨 **Real-time 3D Avatar Customization**
+  - 8 body types (4 male, 4 female)
+  - Customizable colors: Eyes, Hair, Top, Pants, Shoes
+  - Accessories: Jacket, Pants, Full Suit, Shoes
+  
+- 🔐 **User Authentication**
+  - JWT-based authentication
+  - Secure password hashing with bcrypt
+  - Persistent login with AsyncStorage
 
-## Tech Stack
-
-- React Native
-- Expo Router (file-based routing)
-- TypeScript
-- Expo SDK 54
+- 📱 **Cross-Platform**
+  - React Native with Expo
+  - Works on iOS and Android
+  - WebView-based 3D rendering
 
 ## Project Structure
 
 ```
-app/
-├── _layout.tsx           # Root layout with theme provider
-├── index.tsx             # Redirects to login
-├── login.tsx             # Login/signup screen
-└── (main)/               # Authenticated routes (tabs)
-    ├── _layout.tsx       # Tab navigation layout
-    ├── home.tsx          # Dashboard/home screen
-    ├── avatar-editor.tsx # Avatar customization
-    ├── item-selection.tsx # Browse items
-    └── ai-generate.tsx   # AI generation placeholder
+avatar-app-mobile/
+├── app/                          # React Native app screens
+│   ├── (main)/                   # Main app screens
+│   │   ├── avatar-editor.tsx     # Avatar customization screen
+│   │   ├── home.tsx              # Home screen
+│   │   └── item-selection.tsx    # Item selection screen
+│   ├── login.tsx                 # Login screen
+│   └── index.tsx                 # App entry point
+│
+├── avatar-web-viewer/            # 3D avatar viewer (Vite + Three.js)
+│   ├── src/
+│   │   ├── AvatarCustomizer.tsx  # Main 3D avatar component
+│   │   ├── Scene.tsx             # Three.js scene setup
+│   │   ├── textures.ts           # Texture definitions
+│   │   └── App.tsx               # Viewer app entry
+│   └── public/
+│       ├── female.glb            # Female body models (4 variants)
+│       ├── male.glb              # Male body models (4 variants)
+│       ├── jacket.glb            # Jacket accessory
+│       ├── Pants.glb             # Pants accessory
+│       └── accessories/          # Full suits and shoes
+│
+├── backend/                      # Node.js + Express + MongoDB
+│   ├── models/
+│   │   └── User.js               # User model
+│   ├── routes/
+│   │   └── auth.js               # Authentication routes
+│   ├── server.js                 # Express server
+│   └── .env                      # Environment variables
+│
+├── components/                   # Reusable React Native components
+├── constants/                    # App constants and themes
+├── hooks/                        # Custom React hooks
+├── utils/                        # Utility functions
+└── start-app.js                  # Development startup script
+
 ```
 
 ## Getting Started
 
-1. Install dependencies:
+### Prerequisites
+
+- Node.js (v18 or higher)
+- MongoDB (local or Atlas)
+- Expo CLI
+- iOS Simulator or Android Emulator (or Expo Go app)
+
+### Installation
+
+1. **Clone the repository**
    ```bash
+   git clone <repository-url>
+   cd avatar-app-mobile
+   ```
+
+2. **Install dependencies**
+   ```bash
+   # Root dependencies
    npm install
+
+   # Backend dependencies
+   cd backend
+   npm install
+   cd ..
+
+   # Avatar viewer dependencies
+   cd avatar-web-viewer
+   npm install
+   cd ..
    ```
 
-2. Start the development server:
+3. **Configure environment variables**
+   
+   Create `backend/.env`:
+   ```env
+   MONGODB_URI=mongodb://localhost:27017/avatar-app
+   JWT_SECRET=your-secret-key-here
+   PORT=5000
+   ```
+
+4. **Start all servers**
    ```bash
-   npx expo start
+   npm run dev
    ```
+   
+   This starts:
+   - Backend API (http://localhost:5000)
+   - Avatar Web Viewer (http://localhost:5173)
+   - Expo development server
 
-3. Open the app:
-   - Press `i` for iOS simulator
-   - Press `a` for Android emulator
-   - Scan QR code with Expo Go app
+5. **Run on device**
+   - Scan QR code with Expo Go app (iOS/Android)
+   - Or press `i` for iOS simulator, `a` for Android emulator
 
-## Current State
+## API Endpoints
 
-This is a **frontend MVP** with:
-- ✅ Clean routing structure
-- ✅ Modern, minimal UI
-- ✅ Dark mode support
-- ✅ Mock data and placeholders
-- ⏳ No backend integration yet
-- ⏳ No AI integration yet
-- ⏳ No 3D avatar rendering yet
+### Authentication
 
-## Next Steps
+- `POST /api/auth/register` - Register new user
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123"
+  }
+  ```
 
-1. Integrate backend API for authentication
-2. Connect to avatar data storage
-3. Add 3D avatar rendering library
-4. Integrate AI generation service
-5. Add real item catalog
-6. Implement avatar export functionality
+- `POST /api/auth/login` - Login user
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123"
+  }
+  ```
 
-## Development Notes
+## Avatar Customization
 
-- All data is currently mocked/hardcoded
-- Login accepts any email/password combination
-- Avatar preview is a placeholder
-- AI generation is a UI mockup only
+### Body Types
+- **Female**: Slim, Average, Athletic, Heavy
+- **Male**: Slim, Average, Athletic, Heavy
+
+### Customizable Parts
+- **Eyes**: 5 colors (Blue, Brown, Green, Gray, Hazel)
+- **Hair**: 6 colors (Dark, Black, Brown, Blonde, Red, White)
+- **Top**: 5 colors
+- **Pants**: 5 colors
+- **Shoes**: 4 colors
+
+### Accessories
+- **Jacket**: ON/OFF toggle
+- **Pants**: ON/OFF toggle
+- **Full Suit**: 1 option (fits all body types)
+- **Shoes**: Multiple options (gender-specific)
+
+## Technology Stack
+
+### Frontend
+- **React Native** - Mobile app framework
+- **Expo** - Development platform
+- **React Three Fiber** - Three.js React renderer
+- **Three.js** - 3D graphics library
+- **Vite** - Build tool for avatar viewer
+
+### Backend
+- **Node.js** - Runtime environment
+- **Express** - Web framework
+- **MongoDB** - Database
+- **Mongoose** - ODM
+- **JWT** - Authentication
+- **bcrypt** - Password hashing
+
+## Development
+
+### Running Individual Services
+
+**Backend only:**
+```bash
+cd backend
+npm run dev
+```
+
+**Avatar viewer only:**
+```bash
+cd avatar-web-viewer
+npm run dev
+```
+
+**Mobile app only:**
+```bash
+npx expo start
+```
+
+### Utility Scripts
+
+**Check registered users:**
+```bash
+cd backend
+node check-users.js
+```
+
+**Clear all users:**
+```bash
+cd backend
+node clear-users.js
+```
+
+## Architecture
+
+### 3D Avatar System
+- Base avatar models with skeleton/armature
+- Texture-based customization for colors
+- Accessory system with proper bone binding
+- Real-time rendering in WebView
+
+### Authentication Flow
+1. User registers/logs in
+2. JWT token generated and stored
+3. Token persisted in AsyncStorage
+4. Auto-login on app restart
+5. Token validated on protected routes
+
+### Communication
+- React Native ↔ WebView: postMessage API
+- Mobile App ↔ Backend: REST API
+- Real-time 3D updates via message passing
+
+## Troubleshooting
+
+### Avatar not loading
+- Check that avatar-web-viewer is running on port 5173
+- Verify network connectivity between devices
+- Check browser console for errors
+
+### Authentication issues
+- Verify MongoDB is running
+- Check backend logs for errors
+- Ensure JWT_SECRET is set in .env
+
+### Build errors
+- Clear node_modules and reinstall
+- Clear Expo cache: `npx expo start -c`
+- Check for TypeScript errors
+
+## License
+
+MIT
+
+## Contributors
+
+Built with ❤️ for avatar customization

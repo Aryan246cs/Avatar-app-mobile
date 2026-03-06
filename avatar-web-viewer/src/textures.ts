@@ -98,30 +98,45 @@ export const TEXTURES = {
     </svg>
   `),
   
-  // Eyes textures (NEW)
+  // Eyes textures (NEW) - with iris and pupil
   eyes_default: 'data:image/svg+xml;base64,' + btoa(`
     <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#1e3a8a"/>
+      <rect width="256" height="256" fill="#ffffff"/>
+      <circle cx="128" cy="128" r="80" fill="#1e3a8a"/>
+      <circle cx="128" cy="128" r="40" fill="#000000"/>
+      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
     </svg>
   `),
   eyes_brown: 'data:image/svg+xml;base64,' + btoa(`
     <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#78350f"/>
+      <rect width="256" height="256" fill="#ffffff"/>
+      <circle cx="128" cy="128" r="80" fill="#78350f"/>
+      <circle cx="128" cy="128" r="40" fill="#000000"/>
+      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
     </svg>
   `),
   eyes_green: 'data:image/svg+xml;base64,' + btoa(`
     <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#15803d"/>
+      <rect width="256" height="256" fill="#ffffff"/>
+      <circle cx="128" cy="128" r="80" fill="#15803d"/>
+      <circle cx="128" cy="128" r="40" fill="#000000"/>
+      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
     </svg>
   `),
   eyes_gray: 'data:image/svg+xml;base64,' + btoa(`
     <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#6b7280"/>
+      <rect width="256" height="256" fill="#ffffff"/>
+      <circle cx="128" cy="128" r="80" fill="#6b7280"/>
+      <circle cx="128" cy="128" r="40" fill="#000000"/>
+      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
     </svg>
   `),
   eyes_hazel: 'data:image/svg+xml;base64,' + btoa(`
     <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#92400e"/>
+      <rect width="256" height="256" fill="#ffffff"/>
+      <circle cx="128" cy="128" r="80" fill="#92400e"/>
+      <circle cx="128" cy="128" r="40" fill="#000000"/>
+      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
     </svg>
   `),
   

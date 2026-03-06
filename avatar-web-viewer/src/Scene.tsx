@@ -15,6 +15,12 @@ interface SceneProps {
     pants?: boolean;
     shoes?: boolean;
   };
+  accessories?: {
+    jacket?: boolean;
+    pants?: boolean;
+    fullSuit?: number | null;
+    shoes?: number | null;
+  };
 }
 
 export function Scene({ 
@@ -24,7 +30,8 @@ export function Scene({
   shoesTexture,
   eyesTexture,
   hairTexture,
-  visibleParts 
+  visibleParts,
+  accessories
 }: SceneProps) {
   return (
     <div style={{ width: '100%', height: '100vh', background: '#f8f9fa' }}>
@@ -54,6 +61,7 @@ export function Scene({
           eyesTexture={eyesTexture}
           hairTexture={hairTexture}
           visibleParts={visibleParts}
+          accessories={accessories}
         />
         
         {/* Ground shadow */}

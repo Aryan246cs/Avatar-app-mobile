@@ -3,10 +3,11 @@ import type { BodyType } from './AvatarCustomizer';
 import { Scene } from './Scene';
 
 interface MessageData {
-  type: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR' | 'SET_BODY' | 'TOGGLE_VISIBILITY';
+  type: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR' | 'SET_BODY' | 'TOGGLE_VISIBILITY' | 'SET_JACKET' | 'SET_PANTS_ACCESSORY' | 'SET_HAIR_ACCESSORY' | 'SET_MASK_ACCESSORY' | 'SET_FULL_SUIT' | 'SET_SHOES_ACCESSORY';
   value: string;
-  part?: string; // For visibility toggling
-  visible?: boolean; // For visibility toggling
+  part?: string;
+  visible?: boolean;
+  selection?: number | null;
 }
 
 function App() {
@@ -21,6 +22,14 @@ function App() {
     top: true,
     pants: true,
     shoes: true,
+  });
+  const [accessories, setAccessories] = useState({
+    jacket: null as number | null,
+    pants: null as number | null,
+    hair: null as number | null,
+    mask: null as number | null,
+    fullSuit: null as number | null,
+    shoes: null as number | null,
   });
 
   useEffect(() => {
@@ -65,6 +74,48 @@ function App() {
               console.log('📨 Received TOGGLE_VISIBILITY:', data.part, data.visible);
             }
             break;
+          case 'SET_JACKET':
+            setAccessories(prev => ({
+              ...prev,
+              jacket: data.selection ?? null
+            }));
+            console.log('📨 Received SET_JACKET:', data.selection);
+            break;
+          case 'SET_PANTS_ACCESSORY':
+            setAccessories(prev => ({
+              ...prev,
+              pants: data.selection ?? null
+            }));
+            console.log('📨 Received SET_PANTS_ACCESSORY:', data.selection);
+            break;
+          case 'SET_HAIR_ACCESSORY':
+            setAccessories(prev => ({
+              ...prev,
+              hair: data.selection ?? null
+            }));
+            console.log('📨 Received SET_HAIR_ACCESSORY:', data.selection);
+            break;
+          case 'SET_MASK_ACCESSORY':
+            setAccessories(prev => ({
+              ...prev,
+              mask: data.selection ?? null
+            }));
+            console.log('📨 Received SET_MASK_ACCESSORY:', data.selection);
+            break;
+          case 'SET_FULL_SUIT':
+            setAccessories(prev => ({
+              ...prev,
+              fullSuit: data.selection ?? null
+            }));
+            console.log('📨 Received SET_FULL_SUIT:', data.selection);
+            break;
+          case 'SET_SHOES_ACCESSORY':
+            setAccessories(prev => ({
+              ...prev,
+              shoes: data.selection ?? null
+            }));
+            console.log('📨 Received SET_SHOES_ACCESSORY:', data.selection);
+            break;
           default:
             console.warn('Unknown message type:', data.type);
         }
@@ -96,6 +147,7 @@ function App() {
         eyesTexture={eyesTexture}
         hairTexture={hairTexture}
         visibleParts={visibleParts}
+        accessories={accessories}
       />
     </div>
   );
