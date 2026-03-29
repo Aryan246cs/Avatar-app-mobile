@@ -42,28 +42,22 @@ function App() {
           case 'SET_BODY':
             if (['female', 'female1', 'female2', 'female3', 'male', 'male1', 'male2', 'male3'].includes(data.value)) {
               setBodyType(data.value as BodyType);
-              console.log('📨 Received SET_BODY:', data.value);
             }
             break;
           case 'SET_TOP':
             setTopTexture(data.value);
-            console.log('📨 Received SET_TOP:', data.value);
             break;
           case 'SET_PANTS':
             setPantsTexture(data.value);
-            console.log('📨 Received SET_PANTS:', data.value);
             break;
           case 'SET_SHOES':
             setShoesTexture(data.value);
-            console.log('📨 Received SET_SHOES:', data.value);
             break;
           case 'SET_EYES':
             setEyesTexture(data.value);
-            console.log('📨 Received SET_EYES:', data.value);
             break;
           case 'SET_HAIR':
             setHairTexture(data.value);
-            console.log('📨 Received SET_HAIR:', data.value);
             break;
           case 'TOGGLE_VISIBILITY':
             if (data.part && data.visible !== undefined) {
@@ -71,7 +65,6 @@ function App() {
                 ...prev,
                 [data.part!]: data.visible
               }));
-              console.log('📨 Received TOGGLE_VISIBILITY:', data.part, data.visible);
             }
             break;
           case 'SET_JACKET':
@@ -79,42 +72,36 @@ function App() {
               ...prev,
               jacket: data.selection ?? null
             }));
-            console.log('📨 Received SET_JACKET:', data.selection);
             break;
           case 'SET_PANTS_ACCESSORY':
             setAccessories(prev => ({
               ...prev,
               pants: data.selection ?? null
             }));
-            console.log('📨 Received SET_PANTS_ACCESSORY:', data.selection);
             break;
           case 'SET_HAIR_ACCESSORY':
             setAccessories(prev => ({
               ...prev,
               hair: data.selection ?? null
             }));
-            console.log('📨 Received SET_HAIR_ACCESSORY:', data.selection);
             break;
           case 'SET_MASK_ACCESSORY':
             setAccessories(prev => ({
               ...prev,
               mask: data.selection ?? null
             }));
-            console.log('📨 Received SET_MASK_ACCESSORY:', data.selection);
             break;
           case 'SET_FULL_SUIT':
             setAccessories(prev => ({
               ...prev,
               fullSuit: data.selection ?? null
             }));
-            console.log('📨 Received SET_FULL_SUIT:', data.selection);
             break;
           case 'SET_SHOES_ACCESSORY':
             setAccessories(prev => ({
               ...prev,
               shoes: data.selection ?? null
             }));
-            console.log('📨 Received SET_SHOES_ACCESSORY:', data.selection);
             break;
           default:
             console.warn('Unknown message type:', data.type);

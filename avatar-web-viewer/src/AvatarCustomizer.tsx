@@ -1,81 +1,52 @@
-import { useGLTF, useTexture } from '@react-three/drei';
-import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { TEXTURES } from './textures';
+import { useGLTF, useTexture } from "@react-three/drei";
+import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
+import { applyAnchor } from "./config/applyAnchor";
+import { disposeObject } from "./config/disposeObject";
+import { prepareMesh } from "./config/prepareMesh";
+import { TEXTURES } from "./textures";
 
-// Gender-aware accessory file mapping
-const ACCESSORY_FILES = {
-  jacket: {
-    women: {
-      1: '/Jackets/FJ1.glb',
-      2: '/Jackets/FJ2.glb',
-      3: '/Jackets/FJ3.glb',
-    },
-    men: {
-      1: '/Jackets/MJ1.glb',
-      2: '/Jackets/MJ2.glb',
-    }
-  },
-  pants: {
-    women: {
-      1: '/Bottoms/FB1.glb',
-      2: '/Bottoms/FB2.glb',
-    },
-    men: {
-      1: '/Bottoms/MB1.glb',
-      2: '/Bottoms/MB2.glb',
-    }
-  },
-  hair: {
-    unisex: {
-      1: '/hair.glb',
-    }
-  },
-  mask: {
-    unisex: {
-      1: '/mask.glb',
-    }
-  },
-  fullSuit: {
-    women: {
-      1: '/accessories/Accessories/Full Suit/red suit women1c.glb',
-      3: '/accessories/Accessories/Full Suit/Full3_men.glb', // Using men's suit as option 2
-    },
-    men: {
-      3: '/accessories/Accessories/Full Suit/Full3_men.glb',
-    }
-  },
-  shoes: {
-    women: {
-      1: '/accessories/Accessories/Shoes/Shoes1_Women.glb',
-      2: '/accessories/Accessories/Shoes/Shoes2_Women.glb',
-    },
-    men: {
-      1: '/accessories/Accessories/Shoes/Shoes1_Men.glb',
-      2: '/accessories/Accessories/Shoes/Shoes2_Men.glb',
-    }
-  }
-} as const;
 
-// Helper to detect gender from body type
-const getGender = (bodyType: BodyType): 'women' | 'men' => {
-  return bodyType.startsWith('female') ? 'women' : 'men';
-};
-
-// Body type mapping
+// ─── BODY MAP ────────────────────────────────────────────────────────────────
 const BODY_MAP = {
-  female: '/female.glb',
+  female:  '/female.glb',
   female1: '/female1.glb',
   female2: '/female2.glb',
   female3: '/female3.glb',
-  male: '/male.glb',
-  male1: '/male1.glb',
-  male2: '/male2.glb',
-  male3: '/male3.glb',
+  male:    '/male.glb',
+  male1:   '/male1.glb',
+  male2:   '/male2.glb',
+  male3:   '/male3.glb',
 } as const;
 
-type BodyType = keyof typeof BODY_MAP;
+export type BodyType = keyof typeof BODY_MAP;
 
+// ─── ACCESSORY FILE MAP ───────────────────────────────────────────────────────
+const ACCESSORY_FILES = {
+  jacket: {
+    women: { 1: '/Jackets/FJ1.glb', 2: '/Jackets/FJ2.glb', 3: '/Jackets/FJ3.glb' },
+    men:   { 1: '/Jackets/MJ1.glb', 2: '/Jackets/MJ2.glb' },
+  },
+  pants: {
+    women: { 1: '/Bottoms/FB1.glb', 2: '/Bottoms/FB2.glb' },
+    men:   { 1: '/Bottoms/MB1.glb', 2: '/Bottoms/MB2.glb' },
+  },
+  hair:  { unisex: { 1: '/hair.glb' } },
+  mask:  { unisex: { 1: '/mask.glb' } },
+  fullSuit: {
+    women: { 1: '/accessories/Accessories/Full Suit/red suit women1c.glb' },
+    men:   { 3: '/accessories/Accessories/Full Suit/Full3_men.glb' },
+  },
+  shoes: {
+    women: { 1: '/accessories/Accessories/Shoes/Shoes1_Women.glb', 2: '/accessories/Accessories/Shoes/Shoes2_Women.glb' },
+    men:   { 1: '/accessories/Accessories/Shoes/Shoes1_Men.glb',   2: '/accessories/Accessories/Shoes/Shoes2_Men.glb', 3: '/accessories/Accessories/Shoes/Shoes3_Men.glb' },
+  },
+} as const;
+
+const getGender = (bodyType: BodyType): 'women' | 'men' =>
+  bodyType.startsWith('female') ? 'women' : 'men';
+
+// ─── PROPS ───────────────────────────────────────────────────────────────────
 interface AvatarCustomizerProps {
   bodyType: BodyType;
   topTexture: string;
@@ -83,12 +54,7 @@ interface AvatarCustomizerProps {
   shoesTexture: string;
   eyesTexture: string;
   hairTexture: string;
-  visibleParts?: {
-    hair?: boolean;
-    top?: boolean;
-    pants?: boolean;
-    shoes?: boolean;
-  };
+  visibleParts?: { hair?: boolean; top?: boolean; pants?: boolean; shoes?: boolean };
   accessories?: {
     jacket?: number | null;
     pants?: number | null;
@@ -99,1232 +65,265 @@ interface AvatarCustomizerProps {
   };
 }
 
-export function AvatarCustomizer({ 
+// ─── COMPONENT ───────────────────────────────────────────────────────────────
+export function AvatarCustomizer({
   bodyType,
-  topTexture, 
-  pantsTexture, 
+  topTexture,
+  pantsTexture,
   shoesTexture,
   eyesTexture,
   hairTexture,
   visibleParts = { hair: true, top: true, pants: true, shoes: true },
-  accessories = { jacket: null, pants: null, hair: null, mask: null, fullSuit: null, shoes: null }
+  accessories = { jacket: null, pants: null, hair: null, mask: null, fullSuit: null, shoes: null },
 }: AvatarCustomizerProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const jacketRef = useRef<THREE.Group>(null);
-  const pantsAccessoryRef = useRef<THREE.Group>(null);
-  const hairAccessoryRef = useRef<THREE.Group>(null);
-  const maskAccessoryRef = useRef<THREE.Group>(null);
-  const fullSuitRef = useRef<THREE.Group>(null);
-  const shoesAccessoryRef = useRef<THREE.Group>(null);
+  const groupRef          = useRef<THREE.Group>(null);
+  const jacketRef         = useRef<THREE.Group | null>(null);
+  const pantsAccRef       = useRef<THREE.Group | null>(null);
+  const hairAccRef        = useRef<THREE.Group | null>(null);
+  const maskAccRef        = useRef<THREE.Group | null>(null);
+  const fullSuitRef       = useRef<THREE.Group | null>(null);
+  const shoesAccRef       = useRef<THREE.Group | null>(null);
+
   const [currentBodyPath, setCurrentBodyPath] = useState(BODY_MAP[bodyType]);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Load the GLB based on body type
-  const { scene } = useGLTF(currentBodyPath);
-  
-  // Get gender for current body type
+
   const gender = getGender(bodyType);
-  
-  // Get the correct accessory paths based on gender and selection
-  const jacketPath = accessories.jacket 
-    ? ACCESSORY_FILES.jacket[gender][accessories.jacket as keyof typeof ACCESSORY_FILES.jacket[typeof gender]]
-    : null;
-  const pantsPath = accessories.pants 
-    ? ACCESSORY_FILES.pants[gender][accessories.pants as keyof typeof ACCESSORY_FILES.pants[typeof gender]]
-    : null;
-  const hairPath = accessories.hair 
-    ? ACCESSORY_FILES.hair.unisex[accessories.hair as keyof typeof ACCESSORY_FILES.hair.unisex]
-    : null;
-  const maskPath = accessories.mask 
-    ? ACCESSORY_FILES.mask.unisex[accessories.mask as keyof typeof ACCESSORY_FILES.mask.unisex]
-    : null;
-  const fullSuitPath = accessories.fullSuit 
-    ? ACCESSORY_FILES.fullSuit[gender][accessories.fullSuit as keyof typeof ACCESSORY_FILES.fullSuit[typeof gender]]
-    : null;
-  const shoesPath = accessories.shoes
-    ? ACCESSORY_FILES.shoes[gender][accessories.shoes as keyof typeof ACCESSORY_FILES.shoes[typeof gender]]
-    : null;
-  
-  // Load jacket, pants, hair, mask, full suit and shoes scenes conditionally
-  let jacketScene: THREE.Group | null = null;
-  let pantsAccessoryScene: THREE.Group | null = null;
-  let hairAccessoryScene: THREE.Group | null = null;
-  let maskAccessoryScene: THREE.Group | null = null;
-  let fullSuitScene: THREE.Group | null = null;
-  let shoesAccessoryScene: THREE.Group | null = null;
-  
-  try {
-    if (jacketPath) {
-      const loaded = useGLTF(jacketPath);
-      jacketScene = loaded.scene;
-    }
-  } catch (e) {
-    console.warn('Failed to load jacket:', e);
-  }
-  
-  try {
-    if (pantsPath) {
-      const loaded = useGLTF(pantsPath);
-      pantsAccessoryScene = loaded.scene;
-    }
-  } catch (e) {
-    console.warn('Failed to load pants:', e);
-  }
-  
-  try {
-    if (hairPath) {
-      const loaded = useGLTF(hairPath);
-      hairAccessoryScene = loaded.scene;
-    }
-  } catch (e) {
-    console.warn('Failed to load hair:', e);
-  }
-  
-  try {
-    if (maskPath) {
-      const loaded = useGLTF(maskPath);
-      maskAccessoryScene = loaded.scene;
-    }
-  } catch (e) {
-    console.warn('Failed to load mask:', e);
-  }
-  
-  try {
-    if (fullSuitPath) {
-      const loaded = useGLTF(fullSuitPath);
-      fullSuitScene = loaded.scene;
-    }
-  } catch (e) {
-    console.warn('Failed to load full suit:', e);
-  }
-  
-  try {
-    if (shoesPath) {
-      const loaded = useGLTF(shoesPath);
-      shoesAccessoryScene = loaded.scene;
-    }
-  } catch (e) {
-    console.warn('Failed to load shoes:', e);
-  }
-  
-  // Load all textures
-  const topTex = useTexture(TEXTURES[topTexture as keyof typeof TEXTURES]);
-  const pantsTex = useTexture(TEXTURES[pantsTexture as keyof typeof TEXTURES]);
-  const shoesTex = useTexture(TEXTURES[shoesTexture as keyof typeof TEXTURES]);
-  const eyesTex = useTexture(TEXTURES[eyesTexture as keyof typeof TEXTURES]);
-  const hairTex = useTexture(TEXTURES[hairTexture as keyof typeof TEXTURES]);
 
-  // Auto-rotate disabled - avatar stays static
-  // useFrame((state, delta) => {
-  //   if (groupRef.current) {
-  //     groupRef.current.rotation.y += delta * 0.3;
-  //   }
-  // });
+  // Resolve accessory paths
+  const jacketPath   = accessories.jacket   ? (ACCESSORY_FILES.jacket[gender]   as any)[accessories.jacket]   ?? null : null;
+  const pantsPath    = accessories.pants    ? (ACCESSORY_FILES.pants[gender]    as any)[accessories.pants]    ?? null : null;
+  const hairPath     = accessories.hair     ? (ACCESSORY_FILES.hair.unisex      as any)[accessories.hair]     ?? null : null;
+  const maskPath     = accessories.mask     ? (ACCESSORY_FILES.mask.unisex      as any)[accessories.mask]     ?? null : null;
+  const fullSuitPath = accessories.fullSuit ? (ACCESSORY_FILES.fullSuit[gender] as any)[accessories.fullSuit] ?? null : null;
+  const shoesPath    = accessories.shoes    ? (ACCESSORY_FILES.shoes[gender]    as any)[accessories.shoes]    ?? null : null;
 
-  // Handle body type changes - safely dispose old model and load new one
+  // Load base avatar
+  const { scene } = useGLTF(currentBodyPath);
+
+  // Load accessory scenes — each hook is always called (Rules of Hooks)
+  const jacketGLTF   = useGLTF(jacketPath   ?? '/female.glb');
+  const pantsGLTF    = useGLTF(pantsPath    ?? '/female.glb');
+  const hairGLTF     = useGLTF(hairPath     ?? '/female.glb');
+  const maskGLTF     = useGLTF(maskPath     ?? '/female.glb');
+  const fullSuitGLTF = useGLTF(fullSuitPath ?? '/female.glb');
+  const shoesGLTF    = useGLTF(shoesPath    ?? '/female.glb');
+
+  const jacketScene   = jacketPath   ? jacketGLTF.scene   : null;
+  const pantsAccScene = pantsPath    ? pantsGLTF.scene    : null;
+  const hairAccScene  = hairPath     ? hairGLTF.scene     : null;
+  const maskAccScene  = maskPath     ? maskGLTF.scene     : null;
+  const fullSuitScene = fullSuitPath ? fullSuitGLTF.scene : null;
+  const shoesAccScene = shoesPath    ? shoesGLTF.scene    : null;
+
+  // Load textures
+  const topTex   = useTexture(TEXTURES[topTexture   as keyof typeof TEXTURES] ?? TEXTURES.top_default);
+  const pantsTex = useTexture(TEXTURES[pantsTexture as keyof typeof TEXTURES] ?? TEXTURES.pants_default);
+  const shoesTex = useTexture(TEXTURES[shoesTexture as keyof typeof TEXTURES] ?? TEXTURES.shoes_default);
+  const eyesTex  = useTexture(TEXTURES[eyesTexture  as keyof typeof TEXTURES] ?? TEXTURES.eyes_default);
+  const hairTex  = useTexture(TEXTURES[hairTexture  as keyof typeof TEXTURES] ?? TEXTURES.hair_default);
+
+  // ── Body type switch ─────────────────────────────────────────────────────
   useEffect(() => {
-    const newBodyPath = BODY_MAP[bodyType];
-    
-    if (newBodyPath !== currentBodyPath && !isLoading) {
-      console.log('🔄 Switching body type from', currentBodyPath, 'to', newBodyPath);
+    const newPath = BODY_MAP[bodyType];
+    if (newPath !== currentBodyPath && !isLoading) {
       setIsLoading(true);
-      
-      // Clear current scene safely
       if (groupRef.current) {
         groupRef.current.traverse((node) => {
           if (node instanceof THREE.Mesh) {
             node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
+            const mats = Array.isArray(node.material) ? node.material : [node.material];
+            mats.forEach((m) => m?.dispose());
           }
         });
         groupRef.current.clear();
       }
-      
-      // Update to new body path
-      setCurrentBodyPath(newBodyPath);
+      setCurrentBodyPath(newPath);
       setIsLoading(false);
     }
   }, [bodyType, currentBodyPath, isLoading]);
 
+  // ── Apply textures to base avatar ────────────────────────────────────────
   useEffect(() => {
     if (!scene) return;
-
-    console.log('🎨 APPLYING TEXTURES TO AVATAR.GLB...');
-    console.log('Top:', topTexture, 'Pants:', pantsTexture, 'Shoes:', shoesTexture);
-    console.log('Eyes:', eyesTexture, 'Hair:', hairTexture);
-    console.log('📦 Scene structure:', scene);
-
-    // Clone the scene to avoid modifying the original
-    const clonedScene = scene.clone();
-    
-    // Log all mesh names found in the scene
-    const meshNames: string[] = [];
-    clonedScene.traverse((node) => {
-      if (node instanceof THREE.Mesh) {
-        meshNames.push(node.name);
-        console.log('🔍 Found mesh:', node.name, 'visible:', node.visible, 'material:', node.material);
+    const cloned = scene.clone();
+    cloned.traverse((node) => {
+      if (!(node instanceof THREE.Mesh) || !node.material) return;
+      const mat = (node.material as THREE.MeshStandardMaterial).clone();
+      node.material = mat;
+      const n  = node.name;
+      const nl = n.toLowerCase();
+      if (n === 'Top' || n.includes('Outfit_Top')) {
+        mat.map = topTex; mat.needsUpdate = true;
+        node.visible = visibleParts.top !== false;
+      } else if (n === 'Pants' || n.includes('Outfit_Bottom')) {
+        mat.map = pantsTex; mat.needsUpdate = true;
+        node.visible = visibleParts.pants !== false;
+      } else if (n === 'Shoes' || n.includes('Outfit_Footwear')) {
+        mat.map = shoesTex; mat.needsUpdate = true;
+        node.visible = visibleParts.shoes !== false;
+      } else if (n === 'Hair') {
+        mat.map = hairTex; mat.needsUpdate = true;
+        node.visible = visibleParts.hair !== false;
+      } else if (n === 'Eyes' || (nl.includes('eye') && !nl.includes('eyebrow'))) {
+        mat.map = eyesTex;
+        mat.transparent = false; mat.depthWrite = true; mat.needsUpdate = true;
+        node.visible = true; node.frustumCulled = false; node.renderOrder = 1;
       }
     });
-    console.log('🔍 Found meshes:', meshNames);
-    console.log('👁️ Looking for Eyes mesh...');
-    
-    // Traverse and update textures + visibility
-    clonedScene.traverse((node) => {
-      if (node instanceof THREE.Mesh) {
-        // Ensure material exists and clone it
-        if (node.material) {
-          const material = node.material.clone();
-          node.material = material;
-          
-          // Check if this might be the eyes mesh (case-insensitive)
-          const nodeName = node.name.toLowerCase();
-          if (nodeName.includes('eye')) {
-            console.log('👁️ FOUND POTENTIAL EYES MESH:', node.name);
-          }
-          
-          // Apply textures based on mesh names from avatar.glb
-          switch (node.name) {
-            case 'Top':
-              if ('map' in material) {
-                (material as THREE.MeshStandardMaterial).map = topTex;
-                material.needsUpdate = true;
-                node.visible = visibleParts.top !== false;
-                console.log('✅ Applied TOP texture to:', node.name);
-              }
-              break;
-              
-            case 'Pants':
-              if ('map' in material) {
-                (material as THREE.MeshStandardMaterial).map = pantsTex;
-                material.needsUpdate = true;
-                node.visible = visibleParts.pants !== false;
-                console.log('✅ Applied PANTS texture to:', node.name);
-              }
-              break;
-              
-            case 'Shoes':
-              if ('map' in material) {
-                (material as THREE.MeshStandardMaterial).map = shoesTex;
-                material.needsUpdate = true;
-                node.visible = visibleParts.shoes !== false;
-                console.log('✅ Applied SHOES texture to:', node.name);
-              }
-              break;
-              
-            case 'Eyes':
-              console.log('👁️ Processing Eyes mesh, material type:', material.type);
-              // Handle different material types
-              if (material instanceof THREE.MeshStandardMaterial || 
-                  material instanceof THREE.MeshBasicMaterial ||
-                  material instanceof THREE.MeshPhongMaterial) {
-                material.map = eyesTex;
-                // Don't set color - let the texture define the color
-                material.transparent = false;
-                material.opacity = 1;
-                material.depthWrite = true;
-                material.depthTest = true;
-                material.needsUpdate = true;
-                node.visible = true;
-                node.frustumCulled = false;
-                node.renderOrder = 1; // Render after other meshes
-                console.log('✅ Applied EYES texture to:', node.name, 'with material:', material.type);
-              } else {
-                console.warn('⚠️ Eyes mesh has unsupported material type:', material.type);
-              }
-              break;
-              
-            case 'Hair':
-              if ('map' in material) {
-                (material as THREE.MeshStandardMaterial).map = hairTex;
-                material.needsUpdate = true;
-                node.visible = visibleParts.hair !== false;
-                console.log('✅ Applied HAIR texture to:', node.name);
-              }
-              break;
-              
-            // Body, Head, Teeth remain unchanged (use default materials)
-            case 'Body':
-            case 'Head':
-            case 'Teeth':
-              console.log('ℹ️ Keeping default material for:', node.name);
-              break;
-              
-            default:
-              // Check for eyes with different naming (Eye, eye, EYES, etc.)
-              const lowerName = node.name.toLowerCase();
-              if (lowerName.includes('eye') && !lowerName.includes('eyebrow')) {
-                console.log('👁️ Found eyes with alternate name:', node.name);
-                if ('map' in material) {
-                  const stdMat = material as THREE.MeshStandardMaterial;
-                  stdMat.map = eyesTex;
-                  stdMat.transparent = false;
-                  stdMat.opacity = 1;
-                  stdMat.depthWrite = true;
-                  stdMat.depthTest = true;
-                  stdMat.needsUpdate = true;
-                  node.visible = true;
-                  node.frustumCulled = false;
-                  console.log('✅ Applied EYES texture to alternate name:', node.name);
-                }
-              } else {
-                console.log('⚠️ Unknown mesh:', node.name);
-              }
-              break;
-          }
-        }
-      }
-    });
-
-    // Clear previous children and add the updated scene
     if (groupRef.current) {
       groupRef.current.clear();
-      groupRef.current.add(clonedScene);
+      groupRef.current.add(cloned);
     }
   }, [scene, topTex, pantsTex, shoesTex, eyesTex, hairTex, visibleParts, bodyType]);
 
-  // Handle Jacket accessory - gender-aware selection
-  useEffect(() => {
-    if (!jacketPath || !jacketScene || !groupRef.current) {
-      // Remove jacket if turned off
-      if (jacketRef.current) {
-        jacketRef.current.parent?.remove(jacketRef.current);
-        jacketRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-        jacketRef.current = null as any;
-      }
-      return;
-    }
+  // ── Shared attach helper ─────────────────────────────────────────────────
+  // Clones a GLB scene, applies anchor positioning, prepares meshes, attaches to Armature.
+  // anchorType → ANCHORS_MALE / ANCHORS_FEMALE in config/anchors.ts (per bodyType)
+  // offset     → per-item fine-tune from config/items.ts
+  const attach = (
+    src: THREE.Group,
+    ref: React.MutableRefObject<THREE.Group | null>,
+    anchorType: 'body' | 'legs' | 'feet' | 'face' | 'head' | 'unisex',
+    offset?: [number, number, number],
+    onClone?: (clone: THREE.Group) => void,
+  ) => {
+    if (!groupRef.current) return;
+    let armature: THREE.Object3D | undefined;
+    groupRef.current.traverse((n) => { if (n.name === 'Armature') armature = n; });
+    if (!armature) return;
 
-    console.log('🧥 Loading jacket:', jacketPath);
-    
-    const timer = setTimeout(() => {
-      if (!groupRef.current) return;
-      
-      let armature: THREE.Object3D | undefined;
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Armature') {
-          armature = node;
-        }
-      });
-      
-      if (!armature) {
-        console.warn('⚠️ Armature not found for jacket');
-        return;
-      }
-      
-      const clonedJacket = jacketScene.clone();
-      clonedJacket.position.set(0, 0, 0);
-      clonedJacket.scale.set(1.0, 1.0, 1.0);
-      clonedJacket.rotation.set(0, 0, 0);
-      
-      clonedJacket.traverse((node) => {
-        if (node instanceof THREE.Mesh) {
-          node.visible = true;
-          node.frustumCulled = false;
-          if (node.material) {
-            const mat = node.material as THREE.MeshStandardMaterial;
-            mat.transparent = false;
-            mat.opacity = 1;
-            mat.side = THREE.DoubleSide;
-            mat.needsUpdate = true;
-          }
-        }
-      });
-      
-      clonedJacket.visible = true;
-      
-      if (jacketRef.current) {
-        jacketRef.current.parent?.remove(jacketRef.current);
-        jacketRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-      
-      armature.add(clonedJacket);
-      jacketRef.current = clonedJacket;
-      console.log('✅ Jacket attached');
-    }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      if (jacketRef.current) {
-        jacketRef.current.parent?.remove(jacketRef.current);
-        jacketRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-    };
+    const clone = src.clone();
+    // Pass bodyType so applyAnchor picks the correct male/female anchor set
+    applyAnchor(clone, anchorType, offset, undefined, bodyType);
+    prepareMesh(clone);
+    onClone?.(clone);
+    disposeObject(ref.current);
+    armature.add(clone);
+    ref.current = clone;
+  };
+
+  const detach = (
+    ref: React.MutableRefObject<THREE.Group | null>,
+    onRemove?: () => void,
+  ) => {
+    disposeObject(ref.current);
+    ref.current = null;
+    onRemove?.();
+  };
+
+  // ── JACKET ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!jacketPath || !jacketScene) { detach(jacketRef); return; }
+    const t = setTimeout(() => attach(jacketScene, jacketRef, 'body'), 100);
+    return () => { clearTimeout(t); disposeObject(jacketRef.current); };
   }, [jacketScene, jacketPath, accessories.jacket, bodyType, scene]);
 
-  // Handle Pants accessory - gender-aware selection
+  // ── PANTS ACCESSORY ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!pantsPath || !pantsAccessoryScene || !groupRef.current) {
-      // Remove pants if turned off and RESTORE avatar default pants
-      if (pantsAccessoryRef.current) {
-        pantsAccessoryRef.current.parent?.remove(pantsAccessoryRef.current);
-        pantsAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-        pantsAccessoryRef.current = null as any;
-        
-        // RESTORE avatar's default pants
-        console.log('👖 Pants OFF - Restoring avatar default pants');
-        groupRef.current.traverse((node) => {
-          if (node.name === 'Pants') {
-            node.visible = true;
-            console.log('👖 Restored visibility for default pants');
-          }
-        });
-      }
+    if (!pantsPath || !pantsAccScene) {
+      detach(pantsAccRef, () => {
+        groupRef.current?.traverse((n) => { if (n.name === 'Pants') n.visible = true; });
+      });
       return;
     }
-
-    console.log('👖 Loading pants:', pantsPath);
-    
-    const timer = setTimeout(() => {
-      if (!groupRef.current) return;
-      
-      let armature: THREE.Object3D | undefined;
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Armature') {
-          armature = node;
-        }
+    const t = setTimeout(() => {
+      attach(pantsAccScene, pantsAccRef, 'legs', undefined, () => {
+        groupRef.current?.traverse((n) => { if (n.name === 'Pants') n.visible = false; });
       });
-      
-      if (!armature) {
-        console.warn('⚠️ Armature not found for pants');
-        return;
-      }
-      
-      const clonedPants = pantsAccessoryScene.clone();
-      clonedPants.position.set(0, 0, 0);
-      clonedPants.scale.set(1.0, 1.0, 1.0);
-      clonedPants.rotation.set(0, 0, 0);
-      
-      // Hide avatar's default pants
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Pants') {
-          node.visible = false;
-          console.log('👖 Hiding avatar default pants');
-        }
-      });
-      
-      // Make all pants meshes visible with proper rendering
-      clonedPants.traverse((node) => {
-        node.visible = true;
-        
-        if (node instanceof THREE.Mesh) {
-          node.frustumCulled = false;
-          node.castShadow = true;
-          node.receiveShadow = true;
-          
-          if (node.material) {
-            const materials = Array.isArray(node.material) ? node.material : [node.material];
-            materials.forEach((mat: any) => {
-              mat.transparent = false;
-              mat.opacity = 1;
-              mat.side = THREE.DoubleSide;
-              mat.depthWrite = true;
-              mat.depthTest = true;
-              mat.needsUpdate = true;
-              if (mat.map) mat.map.needsUpdate = true;
-            });
-          }
-        }
-      });
-      
-      if (pantsAccessoryRef.current) {
-        pantsAccessoryRef.current.parent?.remove(pantsAccessoryRef.current);
-        pantsAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-      
-      armature.add(clonedPants);
-      pantsAccessoryRef.current = clonedPants;
-      console.log('✅ Pants accessory attached');
     }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      if (pantsAccessoryRef.current) {
-        pantsAccessoryRef.current.parent?.remove(pantsAccessoryRef.current);
-        pantsAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-    };
-  }, [pantsAccessoryScene, pantsPath, accessories.pants, bodyType, scene]);
+    return () => { clearTimeout(t); disposeObject(pantsAccRef.current); };
+  }, [pantsAccScene, pantsPath, accessories.pants, bodyType, scene]);
 
-  // Handle Hair accessory
+  // ── HAIR ACCESSORY ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (!hairPath || !hairAccessoryScene || !groupRef.current) {
-      // Remove hair if turned off and RESTORE avatar default hair
-      if (hairAccessoryRef.current) {
-        hairAccessoryRef.current.parent?.remove(hairAccessoryRef.current);
-        hairAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-        hairAccessoryRef.current = null as any;
-        
-        // RESTORE avatar's default hair
-        console.log('💇 Hair OFF - Restoring avatar default hair');
-        groupRef.current.traverse((node) => {
-          if (node.name === 'Hair') {
-            node.visible = true;
-            console.log('💇 Restored visibility for default hair');
-          }
-        });
-      }
+    if (!hairPath || !hairAccScene) {
+      detach(hairAccRef, () => {
+        groupRef.current?.traverse((n) => { if (n.name === 'Hair') n.visible = true; });
+      });
       return;
     }
-
-    console.log('💇 Loading hair:', hairPath);
-    
-    const timer = setTimeout(() => {
-      if (!groupRef.current) return;
-      
-      let armature: THREE.Object3D | undefined;
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Armature') {
-          armature = node;
-        }
+    const t = setTimeout(() => {
+      attach(hairAccScene, hairAccRef, 'head', undefined, () => {
+        groupRef.current?.traverse((n) => { if (n.name === 'Hair') n.visible = false; });
       });
-      
-      if (!armature) {
-        console.warn('⚠️ Armature not found for hair');
-        return;
-      }
-      
-      const clonedHair = hairAccessoryScene.clone();
-      clonedHair.position.set(0, 0, 0);
-      clonedHair.scale.set(1.0, 1.0, 1.0);
-      clonedHair.rotation.set(0, 0, 0);
-      
-      // Hide avatar's default hair
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Hair') {
-          node.visible = false;
-          console.log('💇 Hiding avatar default hair');
-        }
-      });
-      
-      // Make all hair meshes visible with proper rendering
-      clonedHair.traverse((node) => {
-        node.visible = true;
-        
-        if (node instanceof THREE.Mesh) {
-          node.frustumCulled = false;
-          node.castShadow = true;
-          node.receiveShadow = true;
-          
-          if (node.material) {
-            const materials = Array.isArray(node.material) ? node.material : [node.material];
-            materials.forEach((mat: any) => {
-              mat.transparent = false;
-              mat.opacity = 1;
-              mat.side = THREE.DoubleSide;
-              mat.depthWrite = true;
-              mat.depthTest = true;
-              mat.needsUpdate = true;
-              if (mat.map) mat.map.needsUpdate = true;
-            });
-          }
-        }
-      });
-      
-      if (hairAccessoryRef.current) {
-        hairAccessoryRef.current.parent?.remove(hairAccessoryRef.current);
-        hairAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-      
-      armature.add(clonedHair);
-      hairAccessoryRef.current = clonedHair;
-      console.log('✅ Hair accessory attached');
     }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      if (hairAccessoryRef.current) {
-        hairAccessoryRef.current.parent?.remove(hairAccessoryRef.current);
-        hairAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-    };
-  }, [hairAccessoryScene, hairPath, accessories.hair, bodyType, scene]);
+    return () => { clearTimeout(t); disposeObject(hairAccRef.current); };
+  }, [hairAccScene, hairPath, accessories.hair, bodyType, scene]);
 
-  // Handle Mask accessory
+  // ── MASK ─────────────────────────────────────────────────────────────────
+  // To fix mask alignment: edit offset [x, y, z] below, or edit ANCHORS.face in anchors.ts
   useEffect(() => {
-    if (!maskPath || !maskAccessoryScene || !groupRef.current) {
-      if (maskAccessoryRef.current) {
-        maskAccessoryRef.current.parent?.remove(maskAccessoryRef.current);
-        maskAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
+    if (!maskPath || !maskAccScene) { detach(maskAccRef); return; }
+    const t = setTimeout(() => attach(maskAccScene, maskAccRef, 'face', [0, 0, 0]), 100);
+    return () => { clearTimeout(t); disposeObject(maskAccRef.current); };
+  }, [maskAccScene, maskPath, accessories.mask, bodyType, scene]);
+
+  // ── FULL SUIT ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!fullSuitPath || !fullSuitScene) {
+      detach(fullSuitRef, () => {
+        groupRef.current?.traverse((n) => {
+          if (['Top', 'Pants'].includes(n.name)) n.visible = true;
         });
-        maskAccessoryRef.current = null as any;
-      }
+      });
       return;
     }
-
-    console.log('😷 Loading mask:', maskPath);
-    
-    const timer = setTimeout(() => {
-      if (!groupRef.current) return;
-      
-      let armature: THREE.Object3D | undefined;
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Armature') {
-          armature = node;
-        }
+    const t = setTimeout(() => {
+      let avatarSkeleton: THREE.Skeleton | undefined;
+      groupRef.current?.traverse((n) => {
+        if (n instanceof THREE.SkinnedMesh && n.skeleton) avatarSkeleton = n.skeleton;
       });
-      
-      if (!armature) {
-        console.warn('⚠️ Armature not found for mask');
-        return;
-      }
-      
-      const clonedMask = maskAccessoryScene.clone();
-      clonedMask.position.set(0, 0, 0);
-      clonedMask.scale.set(1.0, 1.0, 1.0);
-      clonedMask.rotation.set(0, 0, 0);
-      
-      clonedMask.traverse((node) => {
-        node.visible = true;
-        
-        if (node instanceof THREE.Mesh) {
-          node.frustumCulled = false;
-          node.castShadow = true;
-          node.receiveShadow = true;
-          
-          if (node.material) {
-            const materials = Array.isArray(node.material) ? node.material : [node.material];
-            materials.forEach((mat: any) => {
-              mat.transparent = false;
-              mat.opacity = 1;
-              mat.side = THREE.DoubleSide;
-              mat.depthWrite = true;
-              mat.depthTest = true;
-              mat.needsUpdate = true;
-              if (mat.map) mat.map.needsUpdate = true;
-            });
-          }
-        }
-      });
-      
-      if (maskAccessoryRef.current) {
-        maskAccessoryRef.current.parent?.remove(maskAccessoryRef.current);
-        maskAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
+      attach(fullSuitScene, fullSuitRef, 'body', undefined, (clone) => {
+        groupRef.current?.traverse((n) => {
+          if (['Top', 'Pants'].includes(n.name)) n.visible = false;
         });
-      }
-      
-      armature.add(clonedMask);
-      maskAccessoryRef.current = clonedMask;
-      console.log('✅ Mask accessory attached');
-    }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      if (maskAccessoryRef.current) {
-        maskAccessoryRef.current.parent?.remove(maskAccessoryRef.current);
-        maskAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-    };
-  }, [maskAccessoryScene, maskPath, accessories.mask, bodyType, scene]);
-
-  // Handle Full Suit accessory - gender-aware selection
-  useEffect(() => {
-    if (!fullSuitPath || !fullSuitScene || !groupRef.current) {
-      // Remove suit if turned off and RESTORE avatar body parts
-      if (fullSuitRef.current) {
-        fullSuitRef.current.parent?.remove(fullSuitRef.current);
-        fullSuitRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-        fullSuitRef.current = null as any;
-        
-        // RESTORE all hidden avatar body parts
-        console.log('👔 Suit OFF - Restoring avatar body parts');
-        groupRef.current.traverse((node) => {
-          if (['Top', 'Pants'].includes(node.name)) {
-            node.visible = true;
-            console.log('👔 Restored visibility for:', node.name);
-          }
-        });
-      }
-      return;
-    }
-
-    console.log('👔 Loading full suit:', fullSuitPath);
-    
-    const timer = setTimeout(() => {
-      if (!groupRef.current) return;
-      
-      let armature: THREE.Object3D | undefined;
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Armature') {
-          armature = node;
-        }
-      });
-      
-      if (!armature) {
-        console.warn('⚠️ Armature not found for full suit');
-        return;
-      }
-      
-      const clonedSuit = fullSuitScene.clone();
-      clonedSuit.position.set(0, 0, 0);
-      clonedSuit.scale.set(1.0, 1.0, 1.0);
-      clonedSuit.rotation.set(0, 0, 0);
-      
-      // Log all meshes in the suit
-      const suitMeshes: string[] = [];
-      let suitArmature: THREE.Object3D | undefined;
-      clonedSuit.traverse((node) => {
-        if (node instanceof THREE.Mesh) {
-          suitMeshes.push(node.name);
-        }
-        if (node.name === 'Armature' || node.type === 'Bone' || node.type === 'Skeleton') {
-          console.log('👔 Suit has:', node.type, node.name);
-          if (node.name === 'Armature') {
-            suitArmature = node;
-          }
-        }
-      });
-      console.log('👔 Suit meshes:', suitMeshes);
-      console.log('👔 Suit has its own armature?', !!suitArmature);
-      
-      // IMPORTANT: Suit files are complete avatars (body + suit combined)
-      // Strategy: Hide the avatar's body parts and show the complete suit avatar
-      if (suitArmature && armature) {
-        console.log('👔 Suit is a complete avatar - hiding avatar body, showing suit');
-        
-        // Find the avatar's skeleton
-        let avatarSkeleton: THREE.Skeleton | undefined;
-        groupRef.current.traverse((node) => {
-          if (node instanceof THREE.SkinnedMesh && node.skeleton) {
-            avatarSkeleton = node.skeleton;
-          }
-        });
-        
         if (avatarSkeleton) {
-          console.log('👔 Found avatar skeleton, binding suit meshes');
-          
-          // HIDE only the torso and legs (keep head, eyes, teeth, hair, hands, arms visible)
-          const partsToHide = ['Top', 'Pants'];
-          groupRef.current.traverse((node) => {
-            if (partsToHide.includes(node.name)) {
-              node.visible = false;
-              console.log('👔 Hiding avatar part:', node.name);
-            }
-          });
-          
-          let boundCount = 0;
-          let regularCount = 0;
-          
-          // SHOW ALL suit meshes and bind to avatar skeleton
-          clonedSuit.traverse((node) => {
-            if (node instanceof THREE.SkinnedMesh) {
-              console.log('👔 Binding skinned mesh:', node.name);
-              boundCount++;
-              // Bind to avatar's skeleton
-              node.bind(avatarSkeleton!);
-              node.visible = true;
-              node.frustumCulled = false;
-              node.castShadow = true;
-              node.receiveShadow = true;
-              
-              if (node.material) {
-                const materials = Array.isArray(node.material) ? node.material : [node.material];
-                materials.forEach((mat: any) => {
-                  mat.transparent = false;
-                  mat.opacity = 1;
-                  mat.side = THREE.DoubleSide;
-                  mat.depthWrite = true;
-                  mat.depthTest = true;
-                  mat.needsUpdate = true;
-                  if (mat.map) mat.map.needsUpdate = true;
-                });
-              }
-            } else if (node instanceof THREE.Mesh) {
-              console.log('👔 Regular mesh:', node.name);
-              regularCount++;
-              node.visible = true;
-              node.frustumCulled = false;
-              node.castShadow = true;
-              node.receiveShadow = true;
-              
-              if (node.material) {
-                const materials = Array.isArray(node.material) ? node.material : [node.material];
-                materials.forEach((mat: any) => {
-                  mat.transparent = false;
-                  mat.opacity = 1;
-                  mat.side = THREE.DoubleSide;
-                  mat.depthWrite = true;
-                  mat.depthTest = true;
-                  mat.needsUpdate = true;
-                  if (mat.map) mat.map.needsUpdate = true;
-                });
-              }
-            }
-          });
-          console.log(`👔 Suit loaded: ${boundCount} skinned meshes, ${regularCount} regular meshes`);
-          
-          if (fullSuitRef.current) {
-            fullSuitRef.current.parent?.remove(fullSuitRef.current);
-          }
-          
-          armature.add(clonedSuit);
-          fullSuitRef.current = clonedSuit;
-          console.log('✅ Full suit bound to avatar skeleton');
-        } else {
-          console.warn('⚠️ Could not find avatar skeleton');
-        }
-      } else if (armature) {
-        // Original approach - add entire scene
-        clonedSuit.traverse((node) => {
-          // Make all objects visible, not just meshes
-          node.visible = true;
-          
-          if (node instanceof THREE.Mesh) {
-            node.frustumCulled = false;
-            node.castShadow = true;
-            node.receiveShadow = true;
-            
-            if (node.material) {
-              // Handle both single material and material arrays
-              const materials = Array.isArray(node.material) ? node.material : [node.material];
-              
-              materials.forEach((mat: any) => {
-                mat.transparent = false;
-                mat.opacity = 1;
-                mat.side = THREE.DoubleSide;
-                mat.depthWrite = true;
-                mat.depthTest = true;
-                mat.needsUpdate = true;
-                
-                // Ensure proper rendering
-                if (mat.map) {
-                  mat.map.needsUpdate = true;
-                }
-              });
-            }
-          }
-        });
-        
-        if (fullSuitRef.current) {
-          fullSuitRef.current.parent?.remove(fullSuitRef.current);
-          fullSuitRef.current.traverse((node) => {
-            if (node instanceof THREE.Mesh) {
-              node.geometry?.dispose();
-              if (Array.isArray(node.material)) {
-                node.material.forEach(mat => mat.dispose());
-              } else {
-                node.material?.dispose();
-              }
-            }
+          clone.traverse((n) => {
+            if (n instanceof THREE.SkinnedMesh) n.bind(avatarSkeleton!);
           });
         }
-        
-        armature.add(clonedSuit);
-        fullSuitRef.current = clonedSuit;
-        console.log('✅ Full suit attached');
-      }
+      });
     }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      if (fullSuitRef.current) {
-        fullSuitRef.current.parent?.remove(fullSuitRef.current);
-        fullSuitRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-    };
+    return () => { clearTimeout(t); disposeObject(fullSuitRef.current); };
   }, [fullSuitScene, fullSuitPath, accessories.fullSuit, bodyType, scene]);
 
-  // Handle Shoes accessory - gender-aware selection
+  // ── SHOES ACCESSORY ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!shoesPath || !shoesAccessoryScene || !groupRef.current) {
-      // Remove shoes if turned off and RESTORE avatar default shoes
-      if (shoesAccessoryRef.current) {
-        shoesAccessoryRef.current.parent?.remove(shoesAccessoryRef.current);
-        shoesAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-        shoesAccessoryRef.current = null as any;
-        
-        // RESTORE avatar's default shoes
-        console.log('👞 Shoes OFF - Restoring avatar default shoes');
-        groupRef.current.traverse((node) => {
-          if (node.name === 'Shoes') {
-            node.visible = true;
-            console.log('👞 Restored visibility for default shoes');
-          }
-        });
-      }
+    if (!shoesPath || !shoesAccScene) {
+      detach(shoesAccRef, () => {
+        groupRef.current?.traverse((n) => { if (n.name === 'Shoes') n.visible = true; });
+      });
       return;
     }
-
-    console.log('👞 Loading shoes:', shoesPath);
-    
-    const timer = setTimeout(() => {
-      if (!groupRef.current) return;
-      
-      let armature: THREE.Object3D | undefined;
-      groupRef.current.traverse((node) => {
-        if (node.name === 'Armature') {
-          armature = node;
-        }
+    const t = setTimeout(() => {
+      let avatarSkeleton: THREE.Skeleton | undefined;
+      groupRef.current?.traverse((n) => {
+        if (n instanceof THREE.SkinnedMesh && n.skeleton) avatarSkeleton = n.skeleton;
       });
-      
-      if (!armature) {
-        console.warn('⚠️ Armature not found for shoes');
-        return;
-      }
-      
-      const clonedShoes = shoesAccessoryScene.clone();
-      clonedShoes.position.set(0, 0, 0);
-      clonedShoes.scale.set(1.0, 1.0, 1.0);
-      clonedShoes.rotation.set(0, 0, 0);
-      
-      // Log all meshes in the shoes
-      const shoesMeshes: string[] = [];
-      let shoesArmature: THREE.Object3D | undefined;
-      clonedShoes.traverse((node) => {
-        if (node instanceof THREE.Mesh) {
-          shoesMeshes.push(node.name);
-        }
-        if (node.name === 'Armature' || node.type === 'Bone' || node.type === 'Skeleton') {
-          console.log('👞 Shoes has:', node.type, node.name);
-          if (node.name === 'Armature') {
-            shoesArmature = node;
-          }
-        }
-      });
-      console.log('👞 Shoes meshes:', shoesMeshes);
-      console.log('👞 Shoes has its own armature?', !!shoesArmature);
-      
-      // If shoes have their own armature, we need to merge differently
-      if (shoesArmature && armature) {
-        console.log('👞 Shoes have armature - need to bind to avatar skeleton');
-        
-        // Find the avatar's skeleton
-        let avatarSkeleton: THREE.Skeleton | undefined;
-        groupRef.current.traverse((node) => {
-          if (node instanceof THREE.SkinnedMesh && node.skeleton) {
-            avatarSkeleton = node.skeleton;
-          }
-        });
-        
+      attach(shoesAccScene, shoesAccRef, 'feet', undefined, (clone) => {
+        groupRef.current?.traverse((n) => { if (n.name === 'Shoes') n.visible = false; });
         if (avatarSkeleton) {
-          console.log('👞 Found avatar skeleton, binding shoes meshes');
-          
-          // HIDE the avatar's shoes
-          groupRef.current.traverse((node) => {
-            if (node.name === 'Shoes') {
-              node.visible = false;
-              console.log('👞 Hiding avatar shoes');
-            }
-          });
-          
-          let boundCount = 0;
-          let regularCount = 0;
-          
-          // SHOW ALL shoes meshes and bind to avatar skeleton
-          clonedShoes.traverse((node) => {
-            if (node instanceof THREE.SkinnedMesh) {
-              console.log('👞 Binding skinned mesh:', node.name);
-              boundCount++;
-              // Bind to avatar's skeleton
-              node.bind(avatarSkeleton!);
-              node.visible = true;
-              node.frustumCulled = false;
-              node.castShadow = true;
-              node.receiveShadow = true;
-              
-              if (node.material) {
-                const materials = Array.isArray(node.material) ? node.material : [node.material];
-                materials.forEach((mat: any) => {
-                  mat.transparent = false;
-                  mat.opacity = 1;
-                  mat.side = THREE.DoubleSide;
-                  mat.depthWrite = true;
-                  mat.depthTest = true;
-                  mat.needsUpdate = true;
-                  if (mat.map) mat.map.needsUpdate = true;
-                });
-              }
-            } else if (node instanceof THREE.Mesh) {
-              console.log('👞 Regular mesh:', node.name);
-              regularCount++;
-              node.visible = true;
-              node.frustumCulled = false;
-              node.castShadow = true;
-              node.receiveShadow = true;
-              
-              if (node.material) {
-                const materials = Array.isArray(node.material) ? node.material : [node.material];
-                materials.forEach((mat: any) => {
-                  mat.transparent = false;
-                  mat.opacity = 1;
-                  mat.side = THREE.DoubleSide;
-                  mat.depthWrite = true;
-                  mat.depthTest = true;
-                  mat.needsUpdate = true;
-                  if (mat.map) mat.map.needsUpdate = true;
-                });
-              }
-            }
-          });
-          console.log(`👞 Shoes loaded: ${boundCount} skinned meshes, ${regularCount} regular meshes`);
-          
-          if (shoesAccessoryRef.current) {
-            shoesAccessoryRef.current.parent?.remove(shoesAccessoryRef.current);
-          }
-          
-          armature.add(clonedShoes);
-          shoesAccessoryRef.current = clonedShoes;
-          console.log('✅ Shoes bound to avatar skeleton');
-        } else {
-          console.warn('⚠️ Could not find avatar skeleton');
-        }
-      } else if (armature) {
-        // Original approach - add entire scene
-        
-        // HIDE the avatar's default shoes
-        groupRef.current.traverse((node) => {
-          if (node.name === 'Shoes') {
-            node.visible = false;
-            console.log('👞 Hiding avatar default shoes (alternative path)');
-          }
-        });
-        
-        clonedShoes.traverse((node) => {
-          // Make all objects visible, not just meshes
-          node.visible = true;
-          
-          if (node instanceof THREE.Mesh) {
-            node.frustumCulled = false;
-            node.castShadow = true;
-            node.receiveShadow = true;
-            
-            if (node.material) {
-              // Handle both single material and material arrays
-              const materials = Array.isArray(node.material) ? node.material : [node.material];
-              
-              materials.forEach((mat: any) => {
-                mat.transparent = false;
-                mat.opacity = 1;
-                mat.side = THREE.DoubleSide;
-                mat.depthWrite = true;
-                mat.depthTest = true;
-                mat.needsUpdate = true;
-                
-                // Ensure proper rendering
-                if (mat.map) {
-                  mat.map.needsUpdate = true;
-                }
-              });
-            }
-          }
-        });
-        
-        if (shoesAccessoryRef.current) {
-          shoesAccessoryRef.current.parent?.remove(shoesAccessoryRef.current);
-          shoesAccessoryRef.current.traverse((node) => {
-            if (node instanceof THREE.Mesh) {
-              node.geometry?.dispose();
-              if (Array.isArray(node.material)) {
-                node.material.forEach(mat => mat.dispose());
-              } else {
-                node.material?.dispose();
-              }
-            }
+          clone.traverse((n) => {
+            if (n instanceof THREE.SkinnedMesh) n.bind(avatarSkeleton!);
           });
         }
-        
-        armature.add(clonedShoes);
-        shoesAccessoryRef.current = clonedShoes;
-        console.log('✅ Shoes attached');
-      }
+      });
     }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      if (shoesAccessoryRef.current) {
-        shoesAccessoryRef.current.parent?.remove(shoesAccessoryRef.current);
-        shoesAccessoryRef.current.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            node.geometry?.dispose();
-            if (Array.isArray(node.material)) {
-              node.material.forEach(mat => mat.dispose());
-            } else {
-              node.material?.dispose();
-            }
-          }
-        });
-      }
-    };
-  }, [shoesAccessoryScene, shoesPath, accessories.shoes, bodyType, scene]);
+    return () => { clearTimeout(t); disposeObject(shoesAccRef.current); };
+  }, [shoesAccScene, shoesPath, accessories.shoes, bodyType, scene]);
 
-  return (
-    <group ref={groupRef} position={[0, 0, 0]} scale={[1, 1, 1]} />
-  );
+  return <group ref={groupRef} position={[0, 0, 0]} scale={[1, 1, 1]} />;
 }
 
-
-// Preload all jacket accessories
-Object.values(ACCESSORY_FILES.jacket.women).forEach(path => {
-  useGLTF.preload(path);
-});
-Object.values(ACCESSORY_FILES.jacket.men).forEach(path => {
-  useGLTF.preload(path);
-});
-
-// Preload all pants accessories
-Object.values(ACCESSORY_FILES.pants.women).forEach(path => {
-  useGLTF.preload(path);
-});
-Object.values(ACCESSORY_FILES.pants.men).forEach(path => {
-  useGLTF.preload(path);
-});
-
-// Preload all hair accessories
-Object.values(ACCESSORY_FILES.hair.unisex).forEach(path => {
-  useGLTF.preload(path);
-});
-
-// Preload all mask accessories
-Object.values(ACCESSORY_FILES.mask.unisex).forEach(path => {
-  useGLTF.preload(path);
-});
-
-// Preload all full suit accessories
-useGLTF.preload('/accessories/Accessories/Full Suit/red suit women1c.glb');
-useGLTF.preload('/accessories/Accessories/Full Suit/Full3_men.glb');
-
-// Preload all shoes accessories
-Object.values(ACCESSORY_FILES.shoes.women).forEach(path => {
-  useGLTF.preload(path);
-});
-Object.values(ACCESSORY_FILES.shoes.men).forEach(path => {
-  useGLTF.preload(path);
-});
-
-export type { BodyType };
+// ─── PRELOAD ALL ASSETS ───────────────────────────────────────────────────────
+Object.values(BODY_MAP).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.jacket.women).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.jacket.men).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.pants.women).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.pants.men).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.hair.unisex).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.mask.unisex).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.fullSuit.women).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.fullSuit.men).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.shoes.women).forEach(useGLTF.preload);
+Object.values(ACCESSORY_FILES.shoes.men).forEach(useGLTF.preload);

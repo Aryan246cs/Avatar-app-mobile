@@ -25,7 +25,7 @@ const getAvatarViewerUrl = () => {
   }
   
   // Fallback to the current network IP
-  return 'http://192.168.100.90:5173';
+  return 'http://192.168.100.97:5173';
 };
 
 type BodyType = 'female' | 'female1' | 'female2' | 'female3' | 'male' | 'male1' | 'male2' | 'male3';

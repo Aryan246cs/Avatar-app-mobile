@@ -1,5 +1,6 @@
 import { ContactShadows, Environment, OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
+import { Suspense } from 'react';
 import { AvatarCustomizer, type BodyType } from './AvatarCustomizer';
 
 interface SceneProps {
@@ -15,31 +16,30 @@ interface SceneProps {
     pants?: boolean;
     shoes?: boolean;
   };
+  // All number | null — matches AvatarCustomizer exactly
   accessories?: {
-    jacket?: boolean;
-    pants?: boolean;
+    jacket?: number | null;
+    pants?: number | null;
+    hair?: number | null;
+    mask?: number | null;
     fullSuit?: number | null;
     shoes?: number | null;
   };
 }
 
-export function Scene({ 
+export function Scene({
   bodyType,
-  topTexture, 
-  pantsTexture, 
+  topTexture,
+  pantsTexture,
   shoesTexture,
   eyesTexture,
   hairTexture,
   visibleParts,
-  accessories
+  accessories,
 }: SceneProps) {
   return (
     <div style={{ width: '100%', height: '100vh', background: '#f8f9fa' }}>
-      <Canvas
-        camera={{ position: [0, 0.2, 4.5], fov: 45 }}
-        shadows
-      >
-        {/* Lighting */}
+      <Canvas camera={{ position: [0, 0.2, 4.5], fov: 45 }} shadows>
         <ambientLight intensity={0.7} />
         <directionalLight
           position={[5, 5, 5]}
@@ -48,32 +48,23 @@ export function Scene({
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
         />
-        
-        {/* Environment for reflections */}
         <Environment preset="studio" />
-        
-        {/* Avatar with full customization (female.glb by default) */}
-        <AvatarCustomizer 
-          bodyType={bodyType}
-          topTexture={topTexture}
-          pantsTexture={pantsTexture}
-          shoesTexture={shoesTexture}
-          eyesTexture={eyesTexture}
-          hairTexture={hairTexture}
-          visibleParts={visibleParts}
-          accessories={accessories}
-        />
-        
-        {/* Ground shadow */}
-        <ContactShadows
-          position={[0, -1.5, 0]}
-          opacity={0.3}
-          scale={10}
-          blur={2}
-          far={4}
-        />
-        
-        {/* Camera controls */}
+
+        {/* Suspense is required by useGLTF — shows nothing while GLBs load */}
+        <Suspense fallback={null}>
+          <AvatarCustomizer
+            bodyType={bodyType}
+            topTexture={topTexture}
+            pantsTexture={pantsTexture}
+            shoesTexture={shoesTexture}
+            eyesTexture={eyesTexture}
+            hairTexture={hairTexture}
+            visibleParts={visibleParts}
+            accessories={accessories}
+          />
+        </Suspense>
+
+        <ContactShadows position={[0, -1.5, 0]} opacity={0.3} scale={10} blur={2} far={4} />
         <OrbitControls
           enablePan={false}
           enableZoom={true}

@@ -1,190 +1,55 @@
-// Texture system with support for data URLs and future image files
-// Structure: textures/[category]/[texture_name].png (for future migration)
+// Texture definitions — solid-color SVG data URLs.
+// To swap to real PNG files, replace the data URL with a path like:
+//   '/textures/top/top_default.png'
+
+const svg = (fill: string) =>
+  'data:image/svg+xml;base64,' +
+  btoa(`<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg"><rect width="256" height="256" fill="${fill}"/></svg>`);
+
+const eye = (iris: string) =>
+  'data:image/svg+xml;base64,' +
+  btoa(`<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+    <rect width="256" height="256" fill="#ffffff"/>
+    <circle cx="128" cy="128" r="80" fill="${iris}"/>
+    <circle cx="128" cy="128" r="40" fill="#000000"/>
+    <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
+  </svg>`);
 
 export const TEXTURES = {
-  // Top textures - more realistic clothing colors
-  top_default: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#2563eb"/>
-    </svg>
-  `),
-  top_black: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#1f2937"/>
-    </svg>
-  `),
-  top_white: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#f9fafb"/>
-    </svg>
-  `),
-  top_red: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#dc2626"/>
-    </svg>
-  `),
-  top_green: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#16a34a"/>
-    </svg>
-  `),
-  top_red: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#dc2626"/>
-    </svg>
-  `),
-  top_green: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#16a34a"/>
-    </svg>
-  `),
-  
-  // Pants textures - realistic denim and fabric colors
-  pants_default: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#374151"/>
-    </svg>
-  `),
-  pants_blue: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#1e40af"/>
-    </svg>
-  `),
-  pants_black: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#000000"/>
-    </svg>
-  `),
-  pants_brown: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#92400e"/>
-    </svg>
-  `),
-  pants_black: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#111827"/>
-    </svg>
-  `),
-  pants_gray: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#374151"/>
-    </svg>
-  `),
-  
-  // Shoes textures - realistic shoe colors
-  shoes_default: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#92400e"/>
-    </svg>
-  `),
-  shoes_black: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#111827"/>
-    </svg>
-  `),
-  shoes_white: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#f3f4f6"/>
-    </svg>
-  `),
-  shoes_brown: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#78350f"/>
-    </svg>
-  `),
-  shoes_brown: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#92400e"/>
-    </svg>
-  `),
-  
-  // Eyes textures (NEW) - with iris and pupil
-  eyes_default: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#ffffff"/>
-      <circle cx="128" cy="128" r="80" fill="#1e3a8a"/>
-      <circle cx="128" cy="128" r="40" fill="#000000"/>
-      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
-    </svg>
-  `),
-  eyes_brown: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#ffffff"/>
-      <circle cx="128" cy="128" r="80" fill="#78350f"/>
-      <circle cx="128" cy="128" r="40" fill="#000000"/>
-      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
-    </svg>
-  `),
-  eyes_green: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#ffffff"/>
-      <circle cx="128" cy="128" r="80" fill="#15803d"/>
-      <circle cx="128" cy="128" r="40" fill="#000000"/>
-      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
-    </svg>
-  `),
-  eyes_gray: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#ffffff"/>
-      <circle cx="128" cy="128" r="80" fill="#6b7280"/>
-      <circle cx="128" cy="128" r="40" fill="#000000"/>
-      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
-    </svg>
-  `),
-  eyes_hazel: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#ffffff"/>
-      <circle cx="128" cy="128" r="80" fill="#92400e"/>
-      <circle cx="128" cy="128" r="40" fill="#000000"/>
-      <circle cx="140" cy="115" r="15" fill="#ffffff" opacity="0.6"/>
-    </svg>
-  `),
-  
-  // Hair textures (NEW)
-  hair_default: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#1f2937"/>
-    </svg>
-  `),
-  hair_black: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#000000"/>
-    </svg>
-  `),
-  hair_brown: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#78350f"/>
-    </svg>
-  `),
-  hair_blonde: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#fbbf24"/>
-    </svg>
-  `),
-  hair_red: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#dc2626"/>
-    </svg>
-  `),
-  hair_white: 'data:image/svg+xml;base64,' + btoa(`
-    <svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
-      <rect width="256" height="256" fill="#f3f4f6"/>
-    </svg>
-  `),
+  // ── Tops ──────────────────────────────────────────────────────────────────
+  top_default: svg('#2563eb'),
+  top_black:   svg('#1f2937'),
+  top_white:   svg('#f9fafb'),
+  top_red:     svg('#dc2626'),
+  top_green:   svg('#16a34a'),
+
+  // ── Pants ─────────────────────────────────────────────────────────────────
+  pants_default: svg('#374151'),
+  pants_blue:    svg('#1e40af'),
+  pants_black:   svg('#111827'),
+  pants_brown:   svg('#92400e'),
+  pants_gray:    svg('#374151'),
+
+  // ── Shoes ─────────────────────────────────────────────────────────────────
+  shoes_default: svg('#92400e'),
+  shoes_black:   svg('#111827'),
+  shoes_white:   svg('#f3f4f6'),
+  shoes_brown:   svg('#78350f'),
+
+  // ── Eyes ──────────────────────────────────────────────────────────────────
+  eyes_default: eye('#1e3a8a'),
+  eyes_brown:   eye('#78350f'),
+  eyes_green:   eye('#15803d'),
+  eyes_gray:    eye('#6b7280'),
+  eyes_hazel:   eye('#92400e'),
+
+  // ── Hair ──────────────────────────────────────────────────────────────────
+  hair_default: svg('#1f2937'),
+  hair_black:   svg('#000000'),
+  hair_brown:   svg('#78350f'),
+  hair_blonde:  svg('#fbbf24'),
+  hair_red:     svg('#dc2626'),
+  hair_white:   svg('#f3f4f6'),
 };
 
-// Texture categories for organized structure (ready for PNG migration)
-export const TEXTURE_CATEGORIES = {
-  top: ['top_default', 'top_black', 'top_white', 'top_red', 'top_green'],
-  pants: ['pants_default', 'pants_blue', 'pants_black', 'pants_brown', 'pants_gray'],
-  shoes: ['shoes_default', 'shoes_black', 'shoes_white', 'shoes_brown'],
-  eyes: ['eyes_default', 'eyes_brown', 'eyes_green', 'eyes_gray', 'eyes_hazel'],
-  hair: ['hair_default', 'hair_black', 'hair_brown', 'hair_blonde', 'hair_red', 'hair_white'],
-};
-
-// Helper function to get texture path (for future PNG support)
-export const getTexturePath = (category: string, textureName: string): string => {
-  // Currently returns data URL, but can be switched to:
-  // return `/textures/${category}/${textureName}.png`;
-  return TEXTURES[textureName as keyof typeof TEXTURES];
-};
+export type TextureKey = keyof typeof TEXTURES;
