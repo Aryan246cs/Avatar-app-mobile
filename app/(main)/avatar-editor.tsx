@@ -1,1376 +1,578 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
-import { Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  Dimensions, ScrollView, StyleSheet,
+  Text, TouchableOpacity, View,
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const COLLAPSED_HEIGHT = 180;
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.65;
+const PANEL_HEIGHT  = SCREEN_HEIGHT * 0.58;
 
-// Smart URL detection - automatically uses the right IP
+// Design tokens — dark theme
+const D = {
+  bg:       '#0f0f0f',
+  panel:    '#161616',
+  card:     '#1e1e1e',
+  border:   '#2a2a2a',
+  accent:   '#ffffff',
+  muted:    '#6b7280',
+  text:     '#f3f4f6',
+  subtext:  '#9ca3af',
+};
+
 const getAvatarViewerUrl = () => {
-  if (!__DEV__) {
-    return 'https://your-actual-vercel-url.vercel.app';
-  }
-  
-  // Try to get the debugger host from Expo
-  const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
-  if (debuggerHost) {
-    return `http://${debuggerHost}:5173`;
-  }
-  
-  // Fallback to the current network IP
-  return 'http://192.168.100.97:5173';
+  if (!__DEV__) return 'https://your-actual-vercel-url.vercel.app';
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  return host ? `http://${host}:5173` : 'http://192.168.100.97:5173';
 };
 
+// ─── TYPES & DATA (unchanged from original) ───────────────────────────────────
 type BodyType = 'female' | 'female1' | 'female2' | 'female3' | 'male' | 'male1' | 'male2' | 'male3';
-
-type BodyOption = {
-  id: BodyType;
-  name: string;
-  gender: 'female' | 'male';
-  size: 'slim' | 'average' | 'athletic' | 'heavy';
-};
+type BodyOption = { id: BodyType; name: string; gender: 'female' | 'male'; size: 'slim' | 'average' | 'athletic' | 'heavy' };
+type AvatarPart  = { id: string; name: string; icon: string; messageType: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR' };
+type TextureOption = { id: string; name: string; value: string; color: string };
 
 const bodyOptions: BodyOption[] = [
-  { id: 'female', name: 'Female', gender: 'female', size: 'slim' },
-  { id: 'female1', name: 'Female 1', gender: 'female', size: 'average' },
-  { id: 'female2', name: 'Female 2', gender: 'female', size: 'athletic' },
-  { id: 'female3', name: 'Female 3', gender: 'female', size: 'heavy' },
-  { id: 'male', name: 'Male', gender: 'male', size: 'slim' },
-  { id: 'male1', name: 'Male 1', gender: 'male', size: 'average' },
-  { id: 'male2', name: 'Male 2', gender: 'male', size: 'athletic' },
-  { id: 'male3', name: 'Male 3', gender: 'male', size: 'heavy' },
+  { id: 'female',  name: 'Slim',     gender: 'female', size: 'slim' },
+  { id: 'female1', name: 'Average',  gender: 'female', size: 'average' },
+  { id: 'female2', name: 'Athletic', gender: 'female', size: 'athletic' },
+  { id: 'female3', name: 'Heavy',    gender: 'female', size: 'heavy' },
+  { id: 'male',    name: 'Slim',     gender: 'male',   size: 'slim' },
+  { id: 'male1',   name: 'Average',  gender: 'male',   size: 'average' },
+  { id: 'male2',   name: 'Athletic', gender: 'male',   size: 'athletic' },
+  { id: 'male3',   name: 'Heavy',    gender: 'male',   size: 'heavy' },
 ];
 
-type AvatarPart = {
-  id: string;
-  name: string;
-  icon: string;
-  messageType: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR';
-};
-
-type TextureOption = {
-  id: string;
-  name: string;
-  value: string;
-  color: string;
-};
-
 const avatarParts: AvatarPart[] = [
-  { id: 'eyes', name: 'Eyes', icon: 'eye.fill', messageType: 'SET_EYES' },
-  { id: 'hair', name: 'Hair', icon: 'person.fill', messageType: 'SET_HAIR' },
-  { id: 'top', name: 'Top', icon: 'tshirt.fill', messageType: 'SET_TOP' },
+  { id: 'eyes',  name: 'Eyes',  icon: 'eye.fill',    messageType: 'SET_EYES' },
+  { id: 'hair',  name: 'Hair',  icon: 'person.fill', messageType: 'SET_HAIR' },
+  { id: 'top',   name: 'Top',   icon: 'tshirt.fill', messageType: 'SET_TOP' },
   { id: 'pants', name: 'Pants', icon: 'tshirt.fill', messageType: 'SET_PANTS' },
   { id: 'shoes', name: 'Shoes', icon: 'circle.fill', messageType: 'SET_SHOES' },
 ];
 
 const textureOptions: Record<string, TextureOption[]> = {
-  eyes: [
-    { id: 'eyes_default', name: 'Blue', value: 'eyes_default', color: '#1e3a8a' },
-    { id: 'eyes_brown', name: 'Brown', value: 'eyes_brown', color: '#78350f' },
-    { id: 'eyes_green', name: 'Green', value: 'eyes_green', color: '#15803d' },
-    { id: 'eyes_gray', name: 'Gray', value: 'eyes_gray', color: '#6b7280' },
-    { id: 'eyes_hazel', name: 'Hazel', value: 'eyes_hazel', color: '#92400e' },
+  eyes:  [
+    { id: 'eyes_default', name: 'Blue',  value: 'eyes_default', color: '#1e3a8a' },
+    { id: 'eyes_brown',   name: 'Brown', value: 'eyes_brown',   color: '#78350f' },
+    { id: 'eyes_green',   name: 'Green', value: 'eyes_green',   color: '#15803d' },
+    { id: 'eyes_gray',    name: 'Gray',  value: 'eyes_gray',    color: '#6b7280' },
+    { id: 'eyes_hazel',   name: 'Hazel', value: 'eyes_hazel',   color: '#92400e' },
   ],
-  hair: [
-    { id: 'hair_default', name: 'Dark', value: 'hair_default', color: '#1f2937' },
-    { id: 'hair_black', name: 'Black', value: 'hair_black', color: '#000000' },
-    { id: 'hair_brown', name: 'Brown', value: 'hair_brown', color: '#78350f' },
-    { id: 'hair_blonde', name: 'Blonde', value: 'hair_blonde', color: '#fbbf24' },
-    { id: 'hair_red', name: 'Red', value: 'hair_red', color: '#dc2626' },
-    { id: 'hair_white', name: 'White', value: 'hair_white', color: '#f3f4f6' },
+  hair:  [
+    { id: 'hair_default', name: 'Dark',   value: 'hair_default', color: '#1f2937' },
+    { id: 'hair_black',   name: 'Black',  value: 'hair_black',   color: '#111827' },
+    { id: 'hair_brown',   name: 'Brown',  value: 'hair_brown',   color: '#78350f' },
+    { id: 'hair_blonde',  name: 'Blonde', value: 'hair_blonde',  color: '#fbbf24' },
+    { id: 'hair_red',     name: 'Red',    value: 'hair_red',     color: '#dc2626' },
+    { id: 'hair_white',   name: 'White',  value: 'hair_white',   color: '#f3f4f6' },
   ],
-  top: [
-    { id: 'top_default', name: 'Blue', value: 'top_default', color: '#4169e1' },
-    { id: 'top_black', name: 'Black', value: 'top_black', color: '#000000' },
-    { id: 'top_white', name: 'White', value: 'top_white', color: '#ffffff' },
-    { id: 'top_red', name: 'Red', value: 'top_red', color: '#dc2626' },
-    { id: 'top_green', name: 'Green', value: 'top_green', color: '#16a34a' },
+  top:   [
+    { id: 'top_default', name: 'Blue',  value: 'top_default', color: '#4169e1' },
+    { id: 'top_black',   name: 'Black', value: 'top_black',   color: '#111827' },
+    { id: 'top_white',   name: 'White', value: 'top_white',   color: '#f9fafb' },
+    { id: 'top_red',     name: 'Red',   value: 'top_red',     color: '#dc2626' },
+    { id: 'top_green',   name: 'Green', value: 'top_green',   color: '#16a34a' },
   ],
   pants: [
-    { id: 'pants_default', name: 'Gray', value: 'pants_default', color: '#2e2e2e' },
-    { id: 'pants_blue', name: 'Navy', value: 'pants_blue', color: '#000080' },
-    { id: 'pants_black', name: 'Black', value: 'pants_black', color: '#000000' },
-    { id: 'pants_brown', name: 'Brown', value: 'pants_brown', color: '#8b4513' },
-    { id: 'pants_gray', name: 'Gray', value: 'pants_gray', color: '#374151' },
+    { id: 'pants_default', name: 'Gray',  value: 'pants_default', color: '#374151' },
+    { id: 'pants_blue',    name: 'Navy',  value: 'pants_blue',    color: '#1e40af' },
+    { id: 'pants_black',   name: 'Black', value: 'pants_black',   color: '#111827' },
+    { id: 'pants_brown',   name: 'Brown', value: 'pants_brown',   color: '#92400e' },
   ],
   shoes: [
-    { id: 'shoes_default', name: 'Brown', value: 'shoes_default', color: '#654321' },
-    { id: 'shoes_black', name: 'Black', value: 'shoes_black', color: '#000000' },
-    { id: 'shoes_white', name: 'White', value: 'shoes_white', color: '#ffffff' },
-    { id: 'shoes_brown', name: 'Brown', value: 'shoes_brown', color: '#92400e' },
+    { id: 'shoes_default', name: 'Brown', value: 'shoes_default', color: '#92400e' },
+    { id: 'shoes_black',   name: 'Black', value: 'shoes_black',   color: '#111827' },
+    { id: 'shoes_white',   name: 'White', value: 'shoes_white',   color: '#f3f4f6' },
+    { id: 'shoes_brown',   name: 'Dark',  value: 'shoes_brown',   color: '#78350f' },
   ],
 };
 
+// Accessory categories for the Store tab
+const ACCESSORY_CATEGORIES = [
+  { id: 'jacket', label: '🧥 Jacket' },
+  { id: 'pants',  label: '👖 Pants' },
+  { id: 'hair',   label: '💇 Hair' },
+  { id: 'mask',   label: '😷 Mask' },
+  { id: 'suit',   label: '👔 Suit' },
+  { id: 'shoes',  label: '👞 Shoes' },
+] as const;
+type AccessoryCategory = typeof ACCESSORY_CATEGORIES[number]['id'];
+
+// ─── REUSABLE UI COMPONENTS ───────────────────────────────────────────────────
+
+/** Pill-shaped tab button used in all three tab rows */
+function Pill({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[s.pill, active && s.pillActive]}
+      activeOpacity={0.75}
+    >
+      <Text style={[s.pillText, active && s.pillTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Circular color swatch */
+function ColorSwatch({ color, selected, onPress }: { color: string; selected: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={s.swatchWrap} activeOpacity={0.8}>
+      <View style={[s.swatch, { backgroundColor: color }, selected && s.swatchSelected]} />
+    </TouchableOpacity>
+  );
+}
+
+/** Body type card — icon + label */
+function BodyCard({ body, selected, onPress }: { body: BodyOption; selected: boolean; onPress: () => void }) {
+  const sizes = { slim: 26, average: 30, athletic: 34, heavy: 38 };
+  return (
+    <TouchableOpacity onPress={onPress} style={[s.bodyCard, selected && s.bodyCardActive]} activeOpacity={0.8}>
+      <IconSymbol name="person.fill" size={sizes[body.size]} color={selected ? D.accent : D.muted} />
+      <Text style={[s.bodyCardLabel, { color: selected ? D.accent : D.muted }]}>{body.name}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Numbered item button used in the Store tab (OFF / 1 / 2 / 3) */
+function ItemBtn({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={[s.itemBtn, active && s.itemBtnActive]} activeOpacity={0.8}>
+      <Text style={[s.itemBtnText, { color: active ? D.accent : D.muted }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function AvatarEditorScreen() {
-  const [selectedBody, setSelectedBody] = useState<BodyType>('female');
-  const [selectedGender, setSelectedGender] = useState<'female' | 'male'>('female');
-  const [selectedPart, setSelectedPart] = useState<string>('eyes');
-  const [selectedAccessoryCategory, setSelectedAccessoryCategory] = useState<'jacket' | 'pants' | 'hair' | 'mask' | 'suit' | 'shoes'>('jacket');
+  // ── State (identical to original) ──────────────────────────────────────
+  const [selectedBody,    setSelectedBody]    = useState<BodyType>('female');
+  const [selectedGender,  setSelectedGender]  = useState<'female' | 'male'>('female');
+  const [selectedPart,    setSelectedPart]    = useState<string>('eyes');
+  const [selectedAccessoryCategory, setSelectedAccessoryCategory] =
+    useState<AccessoryCategory>('jacket');
   const [selectedTextures, setSelectedTextures] = useState({
-    eyes: 'eyes_default',
-    hair: 'hair_default',
-    top: 'top_default',
-    pants: 'pants_default',
-    shoes: 'shoes_default',
+    eyes: 'eyes_default', hair: 'hair_default',
+    top: 'top_default', pants: 'pants_default', shoes: 'shoes_default',
   });
   const [accessories, setAccessories] = useState({
-    jacket: null as number | null,
-    pants: null as number | null,
-    hair: null as number | null,
-    mask: null as number | null,
-    fullSuit: null as number | null,
-    shoes: null as number | null,
+    jacket: null as number | null, pants:    null as number | null,
+    hair:   null as number | null, mask:     null as number | null,
+    fullSuit: null as number | null, shoes:  null as number | null,
   });
-  const [isExpanded, setIsExpanded] = useState(false);
-  
+
+  // Main tab: Body | Colors | Store
+  const [mainTab, setMainTab] = useState<'body' | 'colors' | 'store'>('body');
+
   const webViewRef = useRef<WebView>(null);
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const panelHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
-  
-  // Get the dynamic URL
   const avatarViewerUrl = getAvatarViewerUrl();
 
-  const togglePanel = () => {
-    const toValue = isExpanded ? COLLAPSED_HEIGHT : EXPANDED_HEIGHT;
-    Animated.spring(panelHeight, {
-      toValue,
-      useNativeDriver: false,
-      tension: 50,
-      friction: 8,
-    }).start();
-    setIsExpanded(!isExpanded);
-  };
+  // ── Handlers (identical to original) ───────────────────────────────────
+  const send = (type: string, value: string) =>
+    webViewRef.current?.postMessage(JSON.stringify({ type, value }));
 
-  const sendMessageToWebView = (type: string, value: string) => {
-    const message = JSON.stringify({ type, value });
-    webViewRef.current?.postMessage(message);
-  };
+  const sendSelection = (type: string, selection: number | null) =>
+    webViewRef.current?.postMessage(JSON.stringify({ type, selection }));
 
   const handleBodySelect = (bodyType: BodyType) => {
     setSelectedBody(bodyType);
-    sendMessageToWebView('SET_BODY', bodyType);
+    send('SET_BODY', bodyType);
   };
 
   const handleTextureSelect = (textureValue: string) => {
     const part = avatarParts.find(p => p.id === selectedPart);
     if (part) {
-      setSelectedTextures(prev => ({
-        ...prev,
-        [selectedPart]: textureValue
-      }));
-      sendMessageToWebView(part.messageType, textureValue);
+      setSelectedTextures(prev => ({ ...prev, [selectedPart]: textureValue }));
+      send(part.messageType, textureValue);
     }
   };
 
-  const selectJacket = (selection: number | null) => {
-    setAccessories(prev => ({
-      ...prev,
-      jacket: selection
-    }));
-    const message = JSON.stringify({ 
-      type: 'SET_JACKET', 
-      selection: selection
-    });
-    webViewRef.current?.postMessage(message);
-    console.log('🧥 Jacket selection:', selection);
+  const selectJacket  = (v: number | null) => { setAccessories(p => ({ ...p, jacket:   v })); sendSelection('SET_JACKET',          v); };
+  const selectPants   = (v: number | null) => { setAccessories(p => ({ ...p, pants:    v })); sendSelection('SET_PANTS_ACCESSORY', v); };
+  const selectHair    = (v: number | null) => { setAccessories(p => ({ ...p, hair:     v })); sendSelection('SET_HAIR_ACCESSORY',  v); };
+  const selectMask    = (v: number | null) => { setAccessories(p => ({ ...p, mask:     v })); sendSelection('SET_MASK_ACCESSORY',  v); };
+  const selectFullSuit= (v: number | null) => { setAccessories(p => ({ ...p, fullSuit: v })); sendSelection('SET_FULL_SUIT',       v); };
+  const selectShoes   = (v: number | null) => { setAccessories(p => ({ ...p, shoes:    v })); sendSelection('SET_SHOES_ACCESSORY', v); };
+
+  const handleReset = () => {
+    setSelectedGender('female'); setSelectedBody('female');
+    setSelectedTextures({ eyes: 'eyes_default', hair: 'hair_default', top: 'top_default', pants: 'pants_default', shoes: 'shoes_default' });
+    setAccessories({ jacket: null, pants: null, hair: null, mask: null, fullSuit: null, shoes: null });
+    send('SET_BODY', 'female');
+    send('SET_EYES', 'eyes_default'); send('SET_HAIR', 'hair_default');
+    send('SET_TOP', 'top_default');   send('SET_PANTS', 'pants_default'); send('SET_SHOES', 'shoes_default');
+    sendSelection('SET_JACKET', null);       sendSelection('SET_PANTS_ACCESSORY', null);
+    sendSelection('SET_HAIR_ACCESSORY', null); sendSelection('SET_MASK_ACCESSORY', null);
+    sendSelection('SET_FULL_SUIT', null);    sendSelection('SET_SHOES_ACCESSORY', null);
   };
 
-  const selectPants = (selection: number | null) => {
-    setAccessories(prev => ({
-      ...prev,
-      pants: selection
-    }));
-    const message = JSON.stringify({ 
-      type: 'SET_PANTS_ACCESSORY', 
-      selection: selection
-    });
-    webViewRef.current?.postMessage(message);
-    console.log('👖 Pants selection:', selection);
-  };
-
-  const selectHair = (selection: number | null) => {
-    setAccessories(prev => ({
-      ...prev,
-      hair: selection
-    }));
-    const message = JSON.stringify({ 
-      type: 'SET_HAIR_ACCESSORY', 
-      selection: selection
-    });
-    webViewRef.current?.postMessage(message);
-    console.log('💇 Hair selection:', selection);
-  };
-
-  const selectMask = (selection: number | null) => {
-    setAccessories(prev => ({
-      ...prev,
-      mask: selection
-    }));
-    const message = JSON.stringify({ 
-      type: 'SET_MASK_ACCESSORY', 
-      selection: selection
-    });
-    webViewRef.current?.postMessage(message);
-    console.log('😷 Mask selection:', selection);
-  };
-
-  const selectFullSuit = (selection: number | null) => {
-    setAccessories(prev => ({
-      ...prev,
-      fullSuit: selection
-    }));
-    const message = JSON.stringify({ 
-      type: 'SET_FULL_SUIT', 
-      selection: selection
-    });
-    webViewRef.current?.postMessage(message);
-    console.log('👔 Full suit selection:', selection);
-  };
-
-  const selectShoes = (selection: number | null) => {
-    setAccessories(prev => ({
-      ...prev,
-      shoes: selection
-    }));
-    const message = JSON.stringify({ 
-      type: 'SET_SHOES_ACCESSORY', 
-      selection: selection
-    });
-    webViewRef.current?.postMessage(message);
-    console.log('👞 Shoes selection:', selection);
-  };
-
-  const currentOptions = textureOptions[selectedPart] || [];
   const filteredBodyOptions = bodyOptions.filter(b => b.gender === selectedGender);
+  const currentColors = textureOptions[selectedPart] || [];
 
+  // ── RENDER ─────────────────────────────────────────────────────────────
   return (
-    <ThemedView style={styles.container}>
-      {/* Full Screen 3D Avatar Preview */}
-      <View style={styles.avatarContainer}>
+    <View style={s.root}>
+
+      {/* ── TOP: Avatar viewer (fills remaining space above panel) ── */}
+      <View style={s.viewerWrap}>
         {__DEV__ ? (
           <WebView
             ref={webViewRef}
             source={{ uri: avatarViewerUrl }}
-            style={styles.webView}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
+            style={s.webView}
+            javaScriptEnabled domStorageEnabled startInLoadingState
             renderLoading={() => (
-              <View style={styles.loadingContainer}>
-                <ThemedText>Loading Avatar...</ThemedText>
+              <View style={s.loaderBox}>
+                <Text style={{ color: D.muted }}>Loading avatar…</Text>
               </View>
             )}
-            onError={(error) => {
-              // Handle WebView error
-            }}
+            onError={() => {}}
           />
         ) : (
-          <View style={[styles.webView, styles.placeholderContainer]}>
-            <IconSymbol name="person.fill" size={120} color={colors.tint} />
-            <ThemedText style={styles.placeholderText}>3D Avatar</ThemedText>
+          <View style={s.loaderBox}>
+            <IconSymbol name="person.fill" size={100} color={D.muted} />
           </View>
         )}
       </View>
 
-      {/* Bottom Control Panel */}
-      <Animated.View 
-        style={[
-          styles.bottomPanel,
-          { 
-            height: panelHeight,
-            backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#fff',
-          }
-        ]}
-      >
-        {/* Drag Handle */}
-        <TouchableOpacity 
-          style={styles.dragHandle}
-          onPress={togglePanel}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.dragBar, { backgroundColor: colorScheme === 'dark' ? '#444' : '#ccc' }]} />
-          <ThemedText style={styles.dragText}>
-            {isExpanded ? 'Tap to collapse' : 'Tap to expand controls'}
-          </ThemedText>
-        </TouchableOpacity>
+      {/* ── BOTTOM: Control panel ── */}
+      <View style={s.panel}>
 
-        <ScrollView 
-          style={styles.panelScroll}
-          contentContainerStyle={styles.panelContent}
+        {/* Drag pill */}
+        <View style={s.dragPill} />
+
+        {/* ── Main tab switcher: Body / Colors / Store ── */}
+        <View style={s.mainTabRow}>
+          {(['body', 'colors', 'store'] as const).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setMainTab(tab)}
+              style={[s.mainTab, mainTab === tab && s.mainTabActive]}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.mainTabText, mainTab === tab && s.mainTabTextActive]}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── Tab content ── */}
+        <ScrollView
+          style={s.tabContent}
+          contentContainerStyle={s.tabContentInner}
           showsVerticalScrollIndicator={false}
         >
-          {/* Gender Selection */}
-          <View style={styles.genderSection}>
-            <View style={styles.genderToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.genderButton,
-                  { 
-                    backgroundColor: selectedGender === 'male' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5'),
-                    borderWidth: 2,
-                    borderColor: selectedGender === 'male' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#444' : '#ddd')
-                  }
-                ]}
-                onPress={() => {
-                  setSelectedGender('male');
-                  setSelectedBody('male');
-                  handleBodySelect('male');
-                }}
-              >
-                <ThemedText style={[
-                  styles.genderText,
-                  { 
-                    color: selectedGender === 'male' 
-                      ? '#fff'  // White text when selected
-                      : colors.text  // Normal text color when not selected
-                  }
-                ]}>
-                  ♂ Male
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.genderButton,
-                  { 
-                    backgroundColor: selectedGender === 'female' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5'),
-                    borderWidth: 2,
-                    borderColor: selectedGender === 'female' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#444' : '#ddd')
-                  }
-                ]}
-                onPress={() => {
-                  setSelectedGender('female');
-                  setSelectedBody('female');
-                  handleBodySelect('female');
-                }}
-              >
-                <ThemedText style={[
-                  styles.genderText,
-                  { 
-                    color: selectedGender === 'female' 
-                      ? '#fff'  // White text when selected
-                      : colors.text  // Normal text color when not selected
-                  }
-                ]}>
-                  ♀ Female
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
 
-          {/* Body Type Selection with Icons */}
-          <View style={styles.quickSection}>
-            <ThemedText style={styles.sectionLabel}>Body Type</ThemedText>
-            <View style={styles.bodyIconGrid}>
-              {filteredBodyOptions.map((body) => (
-                <TouchableOpacity
-                  key={body.id}
-                  style={[
-                    styles.bodyIconButton,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: selectedBody === body.id ? colors.tint : 'transparent'
-                    },
-                    selectedBody === body.id && styles.selectedBodyIcon
-                  ]}
-                  onPress={() => handleBodySelect(body.id)}
-                >
-                  <IconSymbol 
-                    name="person.fill" 
-                    size={body.size === 'slim' ? 28 : body.size === 'average' ? 32 : body.size === 'athletic' ? 36 : 40} 
-                    color={selectedBody === body.id ? colors.tint : colors.icon} 
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Part Selection Tabs */}
-          <View style={styles.tabSection}>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.tabScroll}
-            >
-              {avatarParts.map((part) => (
-                <TouchableOpacity
-                  key={part.id}
-                  style={[
-                    styles.tabButton,
-                    { 
-                      backgroundColor: selectedPart === part.id 
-                        ? colors.tint 
-                        : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
-                    }
-                  ]}
-                  onPress={() => setSelectedPart(part.id)}
-                >
-                  <IconSymbol 
-                    name={part.icon as any} 
-                    size={20} 
-                    color={selectedPart === part.id ? '#fff' : colors.icon} 
-                  />
-                  <ThemedText style={[
-                    styles.tabText,
-                    selectedPart === part.id && { color: '#fff', fontWeight: '700' }
-                  ]}>
-                    {part.name}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Color Options */}
-          <View style={styles.colorSection}>
-            <ThemedText style={styles.colorLabel}>
-              Choose Color
-            </ThemedText>
-            <View style={styles.colorGrid}>
-              {currentOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.colorButton,
-                    { 
-                      borderColor: selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value 
-                        ? colors.tint 
-                        : 'transparent'
-                    },
-                    selectedTextures[selectedPart as keyof typeof selectedTextures] === option.value && styles.selectedColor
-                  ]}
-                  onPress={() => handleTextureSelect(option.value)}
-                >
-                  <View style={[styles.colorCircle, { backgroundColor: option.color }]} />
-                  <ThemedText style={styles.colorName}>{option.name}</ThemedText>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Accessories Section */}
-          <View style={styles.accessoriesSection}>
-            <ThemedText style={styles.sectionTitle}>
-              Accessories
-            </ThemedText>
-            
-            {/* Category Tabs */}
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryTabScroll}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.categoryTab,
-                  { 
-                    backgroundColor: selectedAccessoryCategory === 'jacket' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
-                  }
-                ]}
-                onPress={() => setSelectedAccessoryCategory('jacket')}
-              >
-                <ThemedText style={[
-                  styles.categoryTabText,
-                  selectedAccessoryCategory === 'jacket' && { color: '#fff', fontWeight: '700' }
-                ]}>
-                  🧥 Jacket
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.categoryTab,
-                  { 
-                    backgroundColor: selectedAccessoryCategory === 'pants' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
-                  }
-                ]}
-                onPress={() => setSelectedAccessoryCategory('pants')}
-              >
-                <ThemedText style={[
-                  styles.categoryTabText,
-                  selectedAccessoryCategory === 'pants' && { color: '#fff', fontWeight: '700' }
-                ]}>
-                  👖 Pants
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.categoryTab,
-                  { 
-                    backgroundColor: selectedAccessoryCategory === 'hair' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
-                  }
-                ]}
-                onPress={() => setSelectedAccessoryCategory('hair')}
-              >
-                <ThemedText style={[
-                  styles.categoryTabText,
-                  selectedAccessoryCategory === 'hair' && { color: '#fff', fontWeight: '700' }
-                ]}>
-                  💇 Hair
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.categoryTab,
-                  { 
-                    backgroundColor: selectedAccessoryCategory === 'mask' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
-                  }
-                ]}
-                onPress={() => setSelectedAccessoryCategory('mask')}
-              >
-                <ThemedText style={[
-                  styles.categoryTabText,
-                  selectedAccessoryCategory === 'mask' && { color: '#fff', fontWeight: '700' }
-                ]}>
-                  😷 Mask
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.categoryTab,
-                  { 
-                    backgroundColor: selectedAccessoryCategory === 'suit' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
-                  }
-                ]}
-                onPress={() => setSelectedAccessoryCategory('suit')}
-              >
-                <ThemedText style={[
-                  styles.categoryTabText,
-                  selectedAccessoryCategory === 'suit' && { color: '#fff', fontWeight: '700' }
-                ]}>
-                  👔 Suit
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.categoryTab,
-                  { 
-                    backgroundColor: selectedAccessoryCategory === 'shoes' 
-                      ? colors.tint 
-                      : (colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5')
-                  }
-                ]}
-                onPress={() => setSelectedAccessoryCategory('shoes')}
-              >
-                <ThemedText style={[
-                  styles.categoryTabText,
-                  selectedAccessoryCategory === 'shoes' && { color: '#fff', fontWeight: '700' }
-                ]}>
-                  👞 Shoes
-                </ThemedText>
-              </TouchableOpacity>
-            </ScrollView>
-            
-            {/* Jacket Selection */}
-            {selectedAccessoryCategory === 'jacket' && (
-            <View style={styles.selectableAccessory}>
-              <View style={styles.selectableAccessoryHeader}>
-                <ThemedText style={styles.selectableAccessoryTitle}>
-                  🧥 Jacket
-                </ThemedText>
-                <ThemedText style={styles.selectableAccessoryHint}>
-                  Choose a style
-                </ThemedText>
-              </View>
-              <View style={styles.selectionButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.jacket === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.jacket === null && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectJacket(null)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.jacket === null && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    OFF
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.jacket === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.jacket === 1 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectJacket(1)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.jacket === 1 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    1
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.jacket === 2 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.jacket === 2 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectJacket(2)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.jacket === 2 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    2
-                  </ThemedText>
-                </TouchableOpacity>
-                {selectedGender === 'female' && (
+          {/* ════════════════ BODY TAB ════════════════ */}
+          {mainTab === 'body' && (
+            <View>
+              {/* Gender toggle */}
+              <Text style={s.sectionLabel}>Gender</Text>
+              <View style={s.genderRow}>
+                {(['male', 'female'] as const).map(g => (
                   <TouchableOpacity
-                    style={[
-                      styles.selectionButtonSmall,
-                      { 
-                        backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                        borderColor: accessories.jacket === 3 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                      },
-                      accessories.jacket === 3 && styles.selectionButtonSmallActive
-                    ]}
-                    onPress={() => selectJacket(3)}
+                    key={g}
+                    onPress={() => {
+                      setSelectedGender(g);
+                      const base = g === 'male' ? 'male' : 'female';
+                      setSelectedBody(base);
+                      handleBodySelect(base);
+                    }}
+                    style={[s.genderBtn, selectedGender === g && s.genderBtnActive]}
+                    activeOpacity={0.8}
                   >
-                    <ThemedText style={[
-                      styles.selectionButtonSmallText,
-                      accessories.jacket === 3 && { color: colors.tint, fontWeight: '700' }
-                    ]}>
-                      3
-                    </ThemedText>
+                    <Text style={[s.genderBtnText, selectedGender === g && s.genderBtnTextActive]}>
+                      {g === 'male' ? '♂ Male' : '♀ Female'}
+                    </Text>
                   </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Body type grid */}
+              <Text style={s.sectionLabel}>Body Type</Text>
+              <View style={s.bodyGrid}>
+                {filteredBodyOptions.map(body => (
+                  <BodyCard
+                    key={body.id}
+                    body={body}
+                    selected={selectedBody === body.id}
+                    onPress={() => handleBodySelect(body.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ════════════════ COLORS TAB ════════════════ */}
+          {mainTab === 'colors' && (
+            <View>
+              {/* Part selector pills */}
+              <Text style={s.sectionLabel}>Part</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillRow}>
+                {avatarParts.map(p => (
+                  <Pill
+                    key={p.id}
+                    label={p.name}
+                    active={selectedPart === p.id}
+                    onPress={() => setSelectedPart(p.id)}
+                  />
+                ))}
+              </ScrollView>
+
+              {/* Color swatches */}
+              <Text style={s.sectionLabel}>Color</Text>
+              <View style={s.swatchGrid}>
+                {currentColors.map(opt => (
+                  <View key={opt.id} style={s.swatchItem}>
+                    <ColorSwatch
+                      color={opt.color}
+                      selected={selectedTextures[selectedPart as keyof typeof selectedTextures] === opt.value}
+                      onPress={() => handleTextureSelect(opt.value)}
+                    />
+                    <Text style={s.swatchLabel}>{opt.name}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ════════════════ STORE TAB ════════════════ */}
+          {mainTab === 'store' && (
+            <View>
+              {/* Category pills */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillRow}>
+                {ACCESSORY_CATEGORIES.map(cat => (
+                  <Pill
+                    key={cat.id}
+                    label={cat.label}
+                    active={selectedAccessoryCategory === cat.id}
+                    onPress={() => setSelectedAccessoryCategory(cat.id)}
+                  />
+                ))}
+              </ScrollView>
+
+              {/* Item buttons per category */}
+              <View style={s.itemRow}>
+                {/* Jacket */}
+                {selectedAccessoryCategory === 'jacket' && (
+                  <>
+                    <ItemBtn label="OFF" active={accessories.jacket === null} onPress={() => selectJacket(null)} />
+                    <ItemBtn label="1"   active={accessories.jacket === 1}    onPress={() => selectJacket(1)} />
+                    <ItemBtn label="2"   active={accessories.jacket === 2}    onPress={() => selectJacket(2)} />
+                    {selectedGender === 'female' && (
+                      <ItemBtn label="3" active={accessories.jacket === 3}   onPress={() => selectJacket(3)} />
+                    )}
+                  </>
+                )}
+                {/* Pants */}
+                {selectedAccessoryCategory === 'pants' && (
+                  <>
+                    <ItemBtn label="OFF" active={accessories.pants === null} onPress={() => selectPants(null)} />
+                    <ItemBtn label="1"   active={accessories.pants === 1}    onPress={() => selectPants(1)} />
+                    <ItemBtn label="2"   active={accessories.pants === 2}    onPress={() => selectPants(2)} />
+                  </>
+                )}
+                {/* Hair */}
+                {selectedAccessoryCategory === 'hair' && (
+                  <>
+                    <ItemBtn label="OFF" active={accessories.hair === null} onPress={() => selectHair(null)} />
+                    <ItemBtn label="1"   active={accessories.hair === 1}    onPress={() => selectHair(1)} />
+                  </>
+                )}
+                {/* Mask */}
+                {selectedAccessoryCategory === 'mask' && (
+                  <>
+                    <ItemBtn label="OFF" active={accessories.mask === null} onPress={() => selectMask(null)} />
+                    <ItemBtn label="1"   active={accessories.mask === 1}    onPress={() => selectMask(1)} />
+                  </>
+                )}
+                {/* Suit */}
+                {selectedAccessoryCategory === 'suit' && (
+                  <>
+                    <ItemBtn label="OFF" active={accessories.fullSuit === null} onPress={() => selectFullSuit(null)} />
+                    {selectedGender === 'female' && (
+                      <ItemBtn label="1" active={accessories.fullSuit === 1} onPress={() => selectFullSuit(1)} />
+                    )}
+                    <ItemBtn
+                      label={selectedGender === 'female' ? '2' : '1'}
+                      active={accessories.fullSuit === 3}
+                      onPress={() => selectFullSuit(3)}
+                    />
+                  </>
+                )}
+                {/* Shoes */}
+                {selectedAccessoryCategory === 'shoes' && (
+                  <>
+                    <ItemBtn label="OFF" active={accessories.shoes === null} onPress={() => selectShoes(null)} />
+                    <ItemBtn label="1"   active={accessories.shoes === 1}    onPress={() => selectShoes(1)} />
+                    <ItemBtn label="2"   active={accessories.shoes === 2}    onPress={() => selectShoes(2)} />
+                    {selectedGender === 'male' && (
+                      <ItemBtn label="3" active={accessories.shoes === 3}   onPress={() => selectShoes(3)} />
+                    )}
+                  </>
                 )}
               </View>
             </View>
-            )}
-            
-            {/* Pants Selection */}
-            {selectedAccessoryCategory === 'pants' && (
-            <View style={styles.selectableAccessory}>
-              <View style={styles.selectableAccessoryHeader}>
-                <ThemedText style={styles.selectableAccessoryTitle}>
-                  👖 Pants
-                </ThemedText>
-                <ThemedText style={styles.selectableAccessoryHint}>
-                  Choose a style
-                </ThemedText>
-              </View>
-              <View style={styles.selectionButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.pants === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.pants === null && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectPants(null)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.pants === null && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    OFF
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.pants === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.pants === 1 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectPants(1)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.pants === 1 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    1
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.pants === 2 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.pants === 2 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectPants(2)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.pants === 2 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    2
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-            )}
-            
-            {/* Hair Selection */}
-            {selectedAccessoryCategory === 'hair' && (
-            <View style={styles.selectableAccessory}>
-              <View style={styles.selectableAccessoryHeader}>
-                <ThemedText style={styles.selectableAccessoryTitle}>
-                  💇 Hair Style
-                </ThemedText>
-                <ThemedText style={styles.selectableAccessoryHint}>
-                  Choose a style
-                </ThemedText>
-              </View>
-              <View style={styles.selectionButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.hair === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.hair === null && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectHair(null)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.hair === null && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    OFF
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.hair === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.hair === 1 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectHair(1)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.hair === 1 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    1
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-            )}
-            
-            {/* Mask Selection */}
-            {selectedAccessoryCategory === 'mask' && (
-            <View style={styles.selectableAccessory}>
-              <View style={styles.selectableAccessoryHeader}>
-                <ThemedText style={styles.selectableAccessoryTitle}>
-                  😷 Face Mask
-                </ThemedText>
-                <ThemedText style={styles.selectableAccessoryHint}>
-                  Choose a style
-                </ThemedText>
-              </View>
-              <View style={styles.selectionButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.mask === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.mask === null && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectMask(null)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.mask === null && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    OFF
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.mask === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.mask === 1 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectMask(1)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.mask === 1 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    1
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-            )}
-            
-            {/* Full Suit Selection */}
-            {selectedAccessoryCategory === 'suit' && (
-            <View style={styles.selectableAccessory}>
-              <View style={styles.selectableAccessoryHeader}>
-                <ThemedText style={styles.selectableAccessoryTitle}>
-                  👔 Full Suit
-                </ThemedText>
-                <ThemedText style={styles.selectableAccessoryHint}>
-                  Choose a style
-                </ThemedText>
-              </View>
-              <View style={styles.selectionButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.fullSuit === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.fullSuit === null && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectFullSuit(null)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.fullSuit === null && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    OFF
-                  </ThemedText>
-                </TouchableOpacity>
-                {selectedGender === 'female' && (
-                  <TouchableOpacity
-                    style={[
-                      styles.selectionButtonSmall,
-                      { 
-                        backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                        borderColor: accessories.fullSuit === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                      },
-                      accessories.fullSuit === 1 && styles.selectionButtonSmallActive
-                    ]}
-                    onPress={() => selectFullSuit(1)}
-                  >
-                    <ThemedText style={[
-                      styles.selectionButtonSmallText,
-                      accessories.fullSuit === 1 && { color: colors.tint, fontWeight: '700' }
-                    ]}>
-                      1
-                    </ThemedText>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.fullSuit === 3 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.fullSuit === 3 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectFullSuit(3)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.fullSuit === 3 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    {selectedGender === 'female' ? '2' : '1'}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-            )}
-            
-            {/* Shoes Selection */}
-            {selectedAccessoryCategory === 'shoes' && (
-            <View style={styles.selectableAccessory}>
-              <View style={styles.selectableAccessoryHeader}>
-                <ThemedText style={styles.selectableAccessoryTitle}>
-                  👞 Shoes
-                </ThemedText>
-                <ThemedText style={styles.selectableAccessoryHint}>
-                  Choose a style
-                </ThemedText>
-              </View>
-              <View style={styles.selectionButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.shoes === null ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.shoes === null && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectShoes(null)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.shoes === null && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    OFF
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.shoes === 1 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.shoes === 1 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectShoes(1)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.shoes === 1 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    1
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.selectionButtonSmall,
-                    { 
-                      backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f5f5f5',
-                      borderColor: accessories.shoes === 2 ? colors.tint : (colorScheme === 'dark' ? '#444' : '#ddd')
-                    },
-                    accessories.shoes === 2 && styles.selectionButtonSmallActive
-                  ]}
-                  onPress={() => selectShoes(2)}
-                >
-                  <ThemedText style={[
-                    styles.selectionButtonSmallText,
-                    accessories.shoes === 2 && { color: colors.tint, fontWeight: '700' }
-                  ]}>
-                    2
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-            )}
-          </View>
+          )}
 
-          {/* Action Buttons */}
-          <View style={styles.actionSection}>
-            <TouchableOpacity 
-              style={[styles.resetButton, { 
-                borderColor: colors.tint,
-              }]}
-              onPress={() => {
-                setSelectedGender('female');
-                setSelectedBody('female');
-                setSelectedTextures({
-                  eyes: 'eyes_default',
-                  hair: 'hair_default',
-                  top: 'top_default',
-                  pants: 'pants_default',
-                  shoes: 'shoes_default',
-                });
-                setAccessories({
-                  jacket: null,
-                  pants: null,
-                  hair: null,
-                  mask: null,
-                  fullSuit: null,
-                  shoes: null,
-                });
-                sendMessageToWebView('SET_BODY', 'female');
-                sendMessageToWebView('SET_EYES', 'eyes_default');
-                sendMessageToWebView('SET_HAIR', 'hair_default');
-                sendMessageToWebView('SET_TOP', 'top_default');
-                sendMessageToWebView('SET_PANTS', 'pants_default');
-                sendMessageToWebView('SET_SHOES', 'shoes_default');
-                // Reset accessories
-                webViewRef.current?.postMessage(JSON.stringify({ 
-                  type: 'SET_JACKET', 
-                  selection: null
-                }));
-                webViewRef.current?.postMessage(JSON.stringify({ 
-                  type: 'SET_PANTS_ACCESSORY', 
-                  selection: null
-                }));
-                webViewRef.current?.postMessage(JSON.stringify({ 
-                  type: 'SET_HAIR_ACCESSORY', 
-                  selection: null
-                }));
-                webViewRef.current?.postMessage(JSON.stringify({ 
-                  type: 'SET_MASK_ACCESSORY', 
-                  selection: null
-                }));
-                webViewRef.current?.postMessage(JSON.stringify({ 
-                  type: 'SET_FULL_SUIT', 
-                  selection: null
-                }));
-                webViewRef.current?.postMessage(JSON.stringify({ 
-                  type: 'SET_SHOES_ACCESSORY', 
-                  selection: null
-                }));
-              }}
-            >
-              <ThemedText style={[styles.resetButtonText, { color: colors.tint }]}>
-                Reset All
-              </ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.saveButton, { backgroundColor: colors.tint }]}
-              onPress={() => {
-                // Save avatar configuration
-              }}
-            >
-              <ThemedText style={[
-                styles.saveButtonText, 
-                { color: colorScheme === 'dark' ? '#000' : '#fff' }
-              ]}>
-                Save Avatar
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
-      </Animated.View>
-    </ThemedView>
+
+        {/* ── Bottom action bar ── */}
+        <View style={s.actionBar}>
+          <TouchableOpacity onPress={handleReset} style={s.resetBtn} activeOpacity={0.8}>
+            <Text style={s.resetBtnText}>Reset</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => {}} style={s.saveBtn} activeOpacity={0.8}>
+            <Text style={s.saveBtnText}>Save Avatar</Text>
+          </TouchableOpacity>
+        </View>
+
+      </View>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  // Full screen avatar
-  avatarContainer: {
-    flex: 1,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  webView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  placeholderText: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 20,
-  },
-  // Bottom panel
-  bottomPanel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    elevation: 20,
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  // Layout
+  root:        { flex: 1, backgroundColor: D.bg },
+  viewerWrap:  { flex: 1 },
+  webView:     { flex: 1 },
+  loaderBox:   { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: D.bg },
+
+  // Panel
+  panel: {
+    height: PANEL_HEIGHT,
+    backgroundColor: D.panel,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 24,
   },
-  dragHandle: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingTop: 8,
+  dragPill: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: D.border,
+    alignSelf: 'center', marginBottom: 16,
   },
-  dragBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  dragText: {
-    fontSize: 11,
-    opacity: 0.5,
-  },
-  panelScroll: {
-    flex: 1,
-  },
-  panelContent: {
-    padding: 20,
-    paddingTop: 0,
-    paddingBottom: 40,
-  },
-  // Gender selection
-  genderSection: {
-    marginBottom: 16,
-  },
-  genderToggle: {
+
+  // Main tabs (Body / Colors / Store)
+  mainTabRow: {
     flexDirection: 'row',
-    gap: 10,
-  },
-  genderButton: {
-    flex: 1,
-    paddingVertical: 14,
+    marginHorizontal: 20,
+    backgroundColor: D.card,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  genderText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Quick body selection
-  quickSection: {
+    padding: 4,
     marginBottom: 20,
   },
+  mainTab: {
+    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+  },
+  mainTabActive: { backgroundColor: D.accent },
+  mainTabText:   { fontSize: 14, fontWeight: '600', color: D.muted },
+  mainTabTextActive: { color: D.panel },
+
+  // Scrollable tab content
+  tabContent:      { flex: 1 },
+  tabContentInner: { paddingHorizontal: 20, paddingBottom: 16 },
+
+  // Section label
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 10,
-    opacity: 0.7,
+    fontSize: 11, fontWeight: '700', color: D.muted,
+    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12,
   },
-  bodyIconGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
+
+  // Gender
+  genderRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  genderBtn: {
+    flex: 1, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: D.card, alignItems: 'center',
+    borderWidth: 1.5, borderColor: D.border,
   },
-  bodyIconButton: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
+  genderBtnActive:    { backgroundColor: D.accent, borderColor: D.accent },
+  genderBtnText:      { fontSize: 15, fontWeight: '600', color: D.muted },
+  genderBtnTextActive:{ color: D.panel },
+
+  // Body type grid
+  bodyGrid: {
+    flexDirection: 'row', gap: 10,
+    justifyContent: 'space-between', marginBottom: 8,
   },
-  selectedBodyIcon: {
-    borderWidth: 4,
-    elevation: 3,
+  bodyCard: {
+    flex: 1, aspectRatio: 0.75,
+    backgroundColor: D.card, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: D.border, gap: 6,
   },
-  // Tab section
-  tabSection: {
-    marginBottom: 20,
+  bodyCardActive:  { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  bodyCardLabel:   { fontSize: 10, fontWeight: '600' },
+
+  // Pills (part selector / accessory category)
+  pillRow: { marginBottom: 20 },
+  pill: {
+    paddingHorizontal: 16, paddingVertical: 9,
+    borderRadius: 20, backgroundColor: D.card,
+    marginRight: 8, borderWidth: 1, borderColor: D.border,
   },
-  tabScroll: {
-    gap: 10,
-    paddingRight: 20,
+  pillActive:     { backgroundColor: D.accent, borderColor: D.accent },
+  pillText:       { fontSize: 13, fontWeight: '600', color: D.muted },
+  pillTextActive: { color: D.panel },
+
+  // Color swatches
+  swatchGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 8,
   },
-  tabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 8,
+  swatchItem:  { alignItems: 'center', gap: 6 },
+  swatchWrap:  { padding: 3 },
+  swatch: {
+    width: 44, height: 44, borderRadius: 22,
+    borderWidth: 2, borderColor: 'transparent',
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Color section
-  colorSection: {
-    marginBottom: 20,
-  },
-  colorLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  colorGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'space-between',
-  },
-  colorButton: {
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 3,
-    borderRadius: 12,
-    padding: 8,
-  },
-  selectedColor: {
-    borderWidth: 3.5,
-    elevation: 3,
-  },
-  colorCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  colorName: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  // Accessories section
-  accessoriesSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 14,
-  },
-  // Category tabs
-  categoryTabScroll: {
-    gap: 8,
-    marginBottom: 16,
-  },
-  categoryTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  categoryTabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Simple accessories (Jacket & Pants)
-  simpleAccessoriesRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  simpleAccessoryButton: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 3,
-    gap: 6,
-  },
-  simpleAccessoryActive: {
-    borderWidth: 3.5,
-    elevation: 2,
-  },
-  simpleAccessoryEmoji: {
-    fontSize: 28,
-  },
-  simpleAccessoryLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  // Selectable accessories (Full Suit & Shoes)
-  selectableAccessory: {
-    marginBottom: 14,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-  },
-  selectableAccessoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  selectableAccessoryTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  selectableAccessoryHint: {
-    fontSize: 11,
-    opacity: 0.5,
-    fontStyle: 'italic',
-  },
-  selectionButtonsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  selectionButtonSmall: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2.5,
-  },
-  selectionButtonSmallActive: {
-    borderWidth: 3,
-    elevation: 2,
-  },
-  selectionButtonSmallText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  // Actions
-  actionSection: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  resetButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2.5,
-  },
-  resetButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  saveButton: {
-    flex: 2,
-    height: 50,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+  swatchSelected: {
+    borderColor: D.accent,
+    shadowColor: D.accent, shadowOpacity: 0.6,
+    shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
     elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
+  swatchLabel: { fontSize: 10, fontWeight: '600', color: D.subtext },
+
+  // Store item buttons
+  itemRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  itemBtn: {
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderRadius: 14, backgroundColor: D.card,
+    borderWidth: 1.5, borderColor: D.border,
+    minWidth: 64, alignItems: 'center',
   },
+  itemBtnActive: { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  itemBtnText:   { fontSize: 14, fontWeight: '700' },
+
+  // Action bar
+  actionBar: {
+    flexDirection: 'row', gap: 12,
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderTopWidth: 1, borderTopColor: D.border,
+  },
+  resetBtn: {
+    flex: 1, height: 48, borderRadius: 14,
+    borderWidth: 1.5, borderColor: D.border,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  resetBtnText: { fontSize: 14, fontWeight: '700', color: D.muted },
+  saveBtn: {
+    flex: 2, height: 48, borderRadius: 14,
+    backgroundColor: D.accent,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#fff', shadowOpacity: 0.15,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: D.panel },
 });

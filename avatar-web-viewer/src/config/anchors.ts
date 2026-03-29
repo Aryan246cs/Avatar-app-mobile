@@ -44,7 +44,7 @@ export const ANCHORS_FEMALE: AnchorSet = {
 };
 
 export const ANCHORS_MALE: AnchorSet = {
-  head:   { position: [0, 0, 0], scale: [1, 1, 1] },
+  head:   { position: [0, 0.07, 0], scale: [1, 1, 1] },
   face:   { position: [0, 0.07, 0], scale: [1, 1, 1] },
   body:   { position: [0, 0, 0], scale: [1, 1, 1] },
   legs:   { position: [0, 0, 0], scale: [1, 1, 1] },

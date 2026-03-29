@@ -39,7 +39,7 @@ export function Scene({
 }: SceneProps) {
   return (
     <div style={{ width: '100%', height: '100vh', background: '#f8f9fa' }}>
-      <Canvas camera={{ position: [0, 0.2, 4.5], fov: 45 }} shadows>
+      <Canvas camera={{ position: [0, 1.0, 4.5], fov: 30 }} shadows>
         <ambientLight intensity={0.7} />
         <directionalLight
           position={[5, 5, 5]}
@@ -72,7 +72,7 @@ export function Scene({
           maxDistance={7}
           minPolarAngle={0}
           maxPolarAngle={Math.PI}
-          target={[0, 0.2, 0]}
+          target={[0, 1.0, 0]}
         />
       </Canvas>
     </div>
