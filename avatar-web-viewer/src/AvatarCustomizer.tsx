@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { applyAnchor } from "./config/applyAnchor";
 import { disposeObject } from "./config/disposeObject";
 import { prepareMesh } from "./config/prepareMesh";
-import { TEXTURES } from "./textures";
+import { getTextureUrl } from "./textures";
 
 
 // ─── BODY MAP ────────────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ const ACCESSORY_FILES = {
     men:   { 1: '/Bottoms/MB1.glb', 2: '/Bottoms/MB2.glb' },
   },
   hair:  { unisex: { 1: '/hair.glb' } },
-  mask:  { unisex: { 1: '/mask.glb' } },
+  mask:  { unisex: { 1: '/mask.glb', 2: '/plague_mask.glb' } },
   fullSuit: {
     women: { 1: '/accessories/Accessories/Full Suit/red suit women1c.glb' },
     men:   { 3: '/accessories/Accessories/Full Suit/Full3_men.glb' },
@@ -116,11 +116,11 @@ export function AvatarCustomizer({
   const shoesAccScene = shoesPath    ? shoesGLTF.scene    : null;
 
   // Load textures
-  const topTex   = useTexture(TEXTURES[topTexture   as keyof typeof TEXTURES] ?? TEXTURES.top_default);
-  const pantsTex = useTexture(TEXTURES[pantsTexture as keyof typeof TEXTURES] ?? TEXTURES.pants_default);
-  const shoesTex = useTexture(TEXTURES[shoesTexture as keyof typeof TEXTURES] ?? TEXTURES.shoes_default);
-  const eyesTex  = useTexture(TEXTURES[eyesTexture  as keyof typeof TEXTURES] ?? TEXTURES.eyes_default);
-  const hairTex  = useTexture(TEXTURES[hairTexture  as keyof typeof TEXTURES] ?? TEXTURES.hair_default);
+  const topTex   = useTexture(getTextureUrl(topTexture));
+  const pantsTex = useTexture(getTextureUrl(pantsTexture));
+  const shoesTex = useTexture(getTextureUrl(shoesTexture));
+  const eyesTex  = useTexture(getTextureUrl(eyesTexture));
+  const hairTex  = useTexture(getTextureUrl(hairTexture));
 
   // ── Body type switch ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -251,10 +251,43 @@ export function AvatarCustomizer({
   }, [hairAccScene, hairPath, accessories.hair, bodyType, scene]);
 
   // ── MASK ─────────────────────────────────────────────────────────────────
-  // To fix mask alignment: edit offset [x, y, z] below, or edit ANCHORS.face in anchors.ts
   useEffect(() => {
     if (!maskPath || !maskAccScene) { detach(maskAccRef); return; }
-    const t = setTimeout(() => attach(maskAccScene, maskAccRef, 'face', [0, 0, 0]), 100);
+
+    // Per-mask config split by gender — tweak female values independently
+    const maskConfig: Record<'women' | 'men', Record<number, { offset: [number,number,number]; scale: number }>> = {
+      women: {
+        1: { offset: [0, 0.07, 0],    scale: 1.0 },
+        2: { offset: [0, 1.44, 0.12], scale: 0.4 },  // plague_mask female — tweak here
+      },
+      men: {
+        1: { offset: [0, 0.07, 0],    scale: 1.0 },
+        2: { offset: [0, 1.53, 0.11], scale: 0.4 },  // plague_mask male — correct
+      },
+    };
+    const cfg = maskConfig[gender][accessories.mask ?? 1] ?? maskConfig[gender][1];
+
+    const t = setTimeout(() => {
+      if (!groupRef.current) return;
+      let armature: THREE.Object3D | undefined;
+      groupRef.current.traverse((n) => { if (n.name === 'Armature') armature = n; });
+      if (!armature) return;
+
+      const clone = maskAccScene.clone();
+      prepareMesh(clone);
+
+      // Wrap in a pivot group — this is the ONLY reliable way to move/scale
+      // a skinned mesh because bone matrices override node transforms directly.
+      const pivot = new THREE.Group();
+      pivot.position.set(cfg.offset[0], cfg.offset[1], cfg.offset[2]);
+      pivot.scale.setScalar(cfg.scale);
+      pivot.add(clone);
+
+      disposeObject(maskAccRef.current);
+      armature.add(pivot);
+      maskAccRef.current = pivot;
+      console.log('🎭 Mask attached. pivot pos:', pivot.position, 'scale:', pivot.scale.x, 'armature children:', armature.children.length);
+    }, 100);
     return () => { clearTimeout(t); disposeObject(maskAccRef.current); };
   }, [maskAccScene, maskPath, accessories.mask, bodyType, scene]);
 

@@ -2,8 +2,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import {
-  Dimensions, ScrollView, StyleSheet,
-  Text, TouchableOpacity, View,
+  Dimensions, Modal, ScrollView, StyleSheet,
+  Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -26,7 +26,7 @@ const D = {
 const getAvatarViewerUrl = () => {
   if (!__DEV__) return 'https://your-actual-vercel-url.vercel.app';
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return host ? `http://${host}:5173` : 'http://192.168.100.97:5173';
+  return host ? `http://${host}:5174` : 'http://192.168.100.97:5174';
 };
 
 // ─── TYPES & DATA (unchanged from original) ───────────────────────────────────
@@ -146,6 +146,159 @@ function ItemBtn({ label, active, onPress }: { label: string; active: boolean; o
   );
 }
 
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+/** Convert r,g,b (0-255) to hex string like "#a3f0cc" */
+function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+}
+
+/** Parse "#rrggbb" → {r,g,b} or null */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const m = hex.replace('#', '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return null;
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+}
+
+// ─── RGB SLIDER ───────────────────────────────────────────────────────────────
+function RGBSlider({
+  label, value, color, onChange,
+}: { label: string; value: number; color: string; onChange: (v: number) => void }) {
+  const TRACK_W = Dimensions.get('window').width - 80;
+  const trackRef = useRef<View>(null);
+  const trackX = useRef(0);
+
+  const clamp = (x: number) => Math.round(Math.max(0, Math.min(255, (x / TRACK_W) * 255)));
+
+  const measure = (cb: (x: number) => void) => {
+    trackRef.current?.measure((_fx, _fy, _w, _h, px) => {
+      trackX.current = px;
+      cb(px);
+    });
+  };
+
+  return (
+    <View style={sp.sliderRow}>
+      <Text style={sp.sliderLabel}>{label}</Text>
+      <View
+        ref={trackRef}
+        style={[sp.track, { width: TRACK_W }]}
+        onLayout={() => measure(() => {})}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={e => {
+          measure(() => {
+            onChange(clamp(e.nativeEvent.pageX - trackX.current));
+          });
+        }}
+        onResponderMove={e => {
+          onChange(clamp(e.nativeEvent.pageX - trackX.current));
+        }}
+      >
+        <View style={[sp.fill, { width: (value / 255) * TRACK_W, backgroundColor: color }]} />
+        <View style={[sp.thumb, { left: (value / 255) * TRACK_W - 10, borderColor: color }]} />
+      </View>
+      <Text style={sp.sliderValue}>{value}</Text>
+    </View>
+  );
+}
+
+// ─── COLOR PICKER MODAL ───────────────────────────────────────────────────────
+/**
+ * Full-screen modal with:
+ *  - Live color preview
+ *  - R / G / B sliders
+ *  - Hex input field
+ *  - Apply / Cancel buttons
+ */
+function ColorPickerModal({
+  visible,
+  initialColor,
+  onApply,
+  onClose,
+}: {
+  visible: boolean;
+  initialColor: string;
+  onApply: (hex: string) => void;
+  onClose: () => void;
+}) {
+  const init = hexToRgb(initialColor) ?? { r: 100, g: 100, b: 200 };
+  const [r, setR] = useState(init.r);
+  const [g, setG] = useState(init.g);
+  const [b, setB] = useState(init.b);
+  const [hexInput, setHexInput] = useState(rgbToHex(init.r, init.g, init.b));
+
+  const currentHex = rgbToHex(r, g, b);
+
+  const syncFromHex = (raw: string) => {
+    setHexInput(raw);
+    const parsed = hexToRgb(raw);
+    if (parsed) { setR(parsed.r); setG(parsed.g); setB(parsed.b); }
+  };
+
+  const syncFromSlider = (channel: 'r' | 'g' | 'b', val: number) => {
+    const nr = channel === 'r' ? val : r;
+    const ng = channel === 'g' ? val : g;
+    const nb = channel === 'b' ? val : b;
+    if (channel === 'r') setR(val);
+    if (channel === 'g') setG(val);
+    if (channel === 'b') setB(val);
+    setHexInput(rgbToHex(nr, ng, nb));
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={sp.overlay}>
+        <View style={sp.sheet}>
+          {/* Header */}
+          <View style={sp.header}>
+            <Text style={sp.title}>Custom Color</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={sp.closeBtn}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Preview */}
+          <View style={[sp.preview, { backgroundColor: currentHex }]}>
+            <Text style={[sp.previewLabel, { color: r + g + b > 380 ? '#000' : '#fff' }]}>
+              {currentHex.toUpperCase()}
+            </Text>
+          </View>
+
+          {/* Sliders */}
+          <RGBSlider label="R" value={r} color={`rgb(${r},0,0)`}   onChange={v => syncFromSlider('r', v)} />
+          <RGBSlider label="G" value={g} color={`rgb(0,${g},0)`}   onChange={v => syncFromSlider('g', v)} />
+          <RGBSlider label="B" value={b} color={`rgb(0,0,${b})`}   onChange={v => syncFromSlider('b', v)} />
+
+          {/* Hex input */}
+          <View style={sp.hexRow}>
+            <Text style={sp.hexLabel}>HEX</Text>
+            <TextInput
+              style={sp.hexInput}
+              value={hexInput}
+              onChangeText={syncFromHex}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={7}
+              placeholderTextColor="#555"
+            />
+          </View>
+
+          {/* Actions */}
+          <View style={sp.actions}>
+            <TouchableOpacity onPress={onClose} style={sp.cancelBtn}>
+              <Text style={sp.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { onApply(currentHex); onClose(); }} style={sp.applyBtn}>
+              <Text style={sp.applyText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function AvatarEditorScreen() {
   // ── State (identical to original) ──────────────────────────────────────
@@ -166,6 +319,10 @@ export default function AvatarEditorScreen() {
 
   // Main tab: Body | Colors | Store
   const [mainTab, setMainTab] = useState<'body' | 'colors' | 'store'>('body');
+
+  // Custom color picker
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerInitialColor, setPickerInitialColor] = useState('#4169e1');
 
   const webViewRef = useRef<WebView>(null);
   const avatarViewerUrl = getAvatarViewerUrl();
@@ -188,6 +345,15 @@ export default function AvatarEditorScreen() {
       setSelectedTextures(prev => ({ ...prev, [selectedPart]: textureValue }));
       send(part.messageType, textureValue);
     }
+  };
+
+  // Called when user picks a custom color from the modal
+  const handleCustomColor = (hex: string) => {
+    const part = avatarParts.find(p => p.id === selectedPart);
+    if (!part) return;
+    // Send the raw hex directly — the web viewer will apply it as a solid color
+    setSelectedTextures(prev => ({ ...prev, [selectedPart]: hex }));
+    send(part.messageType, hex);
   };
 
   const selectJacket  = (v: number | null) => { setAccessories(p => ({ ...p, jacket:   v })); sendSelection('SET_JACKET',          v); };
@@ -336,7 +502,31 @@ export default function AvatarEditorScreen() {
                     <Text style={s.swatchLabel}>{opt.name}</Text>
                   </View>
                 ))}
+
+                {/* Custom color picker button */}
+                <View style={s.swatchItem}>
+                  <TouchableOpacity
+                    style={s.customSwatchBtn}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      const cur = selectedTextures[selectedPart as keyof typeof selectedTextures];
+                      setPickerInitialColor(cur.startsWith('#') ? cur : '#4169e1');
+                      setPickerVisible(true);
+                    }}
+                  >
+                    <Text style={s.customSwatchPlus}>+</Text>
+                  </TouchableOpacity>
+                  <Text style={s.swatchLabel}>Custom</Text>
+                </View>
               </View>
+
+              {/* Color picker modal */}
+              <ColorPickerModal
+                visible={pickerVisible}
+                initialColor={pickerInitialColor}
+                onApply={handleCustomColor}
+                onClose={() => setPickerVisible(false)}
+              />
             </View>
           )}
 
@@ -388,6 +578,7 @@ export default function AvatarEditorScreen() {
                   <>
                     <ItemBtn label="OFF" active={accessories.mask === null} onPress={() => selectMask(null)} />
                     <ItemBtn label="1"   active={accessories.mask === 1}    onPress={() => selectMask(1)} />
+                    <ItemBtn label="2" active={accessories.mask === 2} onPress={() => selectMask(2)} />
                   </>
                 )}
                 {/* Suit */}
@@ -554,6 +745,16 @@ const s = StyleSheet.create({
   itemBtnActive: { borderColor: D.accent, backgroundColor: '#1f1f1f' },
   itemBtnText:   { fontSize: 14, fontWeight: '700' },
 
+  // Custom color swatch button
+  customSwatchBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    borderWidth: 2, borderColor: D.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: D.card,
+  },
+  customSwatchPlus: { fontSize: 22, color: D.muted, lineHeight: 26 },
+
   // Action bar
   actionBar: {
     flexDirection: 'row', gap: 12,
@@ -575,4 +776,82 @@ const s = StyleSheet.create({
     elevation: 4,
   },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: D.panel },
+});
+
+// ─── COLOR PICKER MODAL STYLES ────────────────────────────────────────────────
+const sp = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40,
+  },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 20,
+  },
+  title:    { fontSize: 18, fontWeight: '700', color: '#f3f4f6' },
+  closeBtn: { fontSize: 18, color: '#6b7280', paddingHorizontal: 4 },
+
+  // Live preview
+  preview: {
+    height: 72, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 24,
+  },
+  previewLabel: { fontSize: 16, fontWeight: '700', letterSpacing: 2 },
+
+  // Sliders
+  sliderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    marginBottom: 18, gap: 10,
+  },
+  sliderLabel: { width: 16, fontSize: 13, fontWeight: '700', color: '#9ca3af' },
+  track: {
+    height: 8, borderRadius: 4,
+    backgroundColor: '#2a2a2a',
+    position: 'relative', justifyContent: 'center',
+  },
+  fill: { position: 'absolute', left: 0, top: 0, height: 8, borderRadius: 4 },
+  thumb: {
+    position: 'absolute', width: 20, height: 20,
+    borderRadius: 10, backgroundColor: '#fff',
+    borderWidth: 2.5, top: -6,
+    shadowColor: '#000', shadowOpacity: 0.4,
+    shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  sliderValue: { width: 32, fontSize: 12, color: '#9ca3af', textAlign: 'right' },
+
+  // Hex input
+  hexRow: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 12, marginTop: 4, marginBottom: 24,
+  },
+  hexLabel: { fontSize: 13, fontWeight: '700', color: '#9ca3af', width: 36 },
+  hexInput: {
+    flex: 1, height: 44, borderRadius: 10,
+    backgroundColor: '#2a2a2a', color: '#f3f4f6',
+    paddingHorizontal: 14, fontSize: 15,
+    fontFamily: 'monospace', letterSpacing: 1,
+    borderWidth: 1, borderColor: '#333',
+  },
+
+  // Actions
+  actions: { flexDirection: 'row', gap: 12 },
+  cancelBtn: {
+    flex: 1, height: 48, borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#333',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  cancelText: { fontSize: 15, fontWeight: '600', color: '#6b7280' },
+  applyBtn: {
+    flex: 2, height: 48, borderRadius: 14,
+    backgroundColor: '#fff',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  applyText: { fontSize: 15, fontWeight: '700', color: '#0f0f0f' },
 });
