@@ -98,15 +98,15 @@ export function AvatarCustomizer({
   const shoesPath    = accessories.shoes    ? (ACCESSORY_FILES.shoes[gender]    as any)[accessories.shoes]    ?? null : null;
 
   // Load base avatar
-  const { scene } = useGLTF(currentBodyPath);
+  const { scene } = useGLTF(currentBodyPath) as any;
 
   // Load accessory scenes — each hook is always called (Rules of Hooks)
-  const jacketGLTF   = useGLTF(jacketPath   ?? '/female.glb');
-  const pantsGLTF    = useGLTF(pantsPath    ?? '/female.glb');
-  const hairGLTF     = useGLTF(hairPath     ?? '/female.glb');
-  const maskGLTF     = useGLTF(maskPath     ?? '/female.glb');
-  const fullSuitGLTF = useGLTF(fullSuitPath ?? '/female.glb');
-  const shoesGLTF    = useGLTF(shoesPath    ?? '/female.glb');
+  const jacketGLTF   = useGLTF(jacketPath   ?? '/female.glb') as any;
+  const pantsGLTF    = useGLTF(pantsPath    ?? '/female.glb') as any;
+  const hairGLTF     = useGLTF(hairPath     ?? '/female.glb') as any;
+  const maskGLTF     = useGLTF(maskPath     ?? '/female.glb') as any;
+  const fullSuitGLTF = useGLTF(fullSuitPath ?? '/female.glb') as any;
+  const shoesGLTF    = useGLTF(shoesPath    ?? '/female.glb') as any;
 
   const jacketScene   = jacketPath   ? jacketGLTF.scene   : null;
   const pantsAccScene = pantsPath    ? pantsGLTF.scene    : null;
@@ -146,7 +146,7 @@ export function AvatarCustomizer({
   useEffect(() => {
     if (!scene) return;
     const cloned = scene.clone();
-    cloned.traverse((node) => {
+    cloned.traverse((node: THREE.Object3D) => {
       if (!(node instanceof THREE.Mesh) || !node.material) return;
       const mat = (node.material as THREE.MeshStandardMaterial).clone();
       node.material = mat;
@@ -349,14 +349,15 @@ export function AvatarCustomizer({
 }
 
 // ─── PRELOAD ALL ASSETS ───────────────────────────────────────────────────────
-Object.values(BODY_MAP).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.jacket.women).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.jacket.men).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.pants.women).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.pants.men).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.hair.unisex).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.mask.unisex).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.fullSuit.women).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.fullSuit.men).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.shoes.women).forEach(useGLTF.preload);
-Object.values(ACCESSORY_FILES.shoes.men).forEach(useGLTF.preload);
+const preload = (path: string) => useGLTF.preload(path);
+Object.values(BODY_MAP).forEach(preload);
+Object.values(ACCESSORY_FILES.jacket.women).forEach(preload);
+Object.values(ACCESSORY_FILES.jacket.men).forEach(preload);
+Object.values(ACCESSORY_FILES.pants.women).forEach(preload);
+Object.values(ACCESSORY_FILES.pants.men).forEach(preload);
+Object.values(ACCESSORY_FILES.hair.unisex).forEach(preload);
+Object.values(ACCESSORY_FILES.mask.unisex).forEach(preload);
+Object.values(ACCESSORY_FILES.fullSuit.women).forEach(preload);
+Object.values(ACCESSORY_FILES.fullSuit.men).forEach(preload);
+Object.values(ACCESSORY_FILES.shoes.women).forEach(preload);
+Object.values(ACCESSORY_FILES.shoes.men).forEach(preload);
