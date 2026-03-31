@@ -38,8 +38,8 @@ export function Scene({
   accessories,
 }: SceneProps) {
   return (
-    <div style={{ width: '100%', height: '100vh', background: '#f8f9fa' }}>
-      <Canvas camera={{ position: [0, 1.0, 4.5], fov: 30 }} shadows>
+    <div style={{ width: '100%', height: '100vh', backgroundImage: 'url(/background_Image_Webviewer.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <Canvas camera={{ position: [0, 1.0, 4.5], fov: 30 }} shadows gl={{ alpha: true }} style={{ background: 'transparent' }}>
         <ambientLight intensity={0.7} />
         <directionalLight
           position={[5, 5, 5]}

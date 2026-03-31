@@ -1,9 +1,11 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import Constants from 'expo-constants';
+import { Image } from 'expo-image';
 import { useRef, useState } from 'react';
 import {
-    Dimensions, Modal, ScrollView, StyleSheet,
-    Text, TextInput, TouchableOpacity, View,
+  Dimensions,
+  Modal, ScrollView, StyleSheet,
+  Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -93,12 +95,12 @@ const textureOptions: Record<string, TextureOption[]> = {
 
 // Accessory categories for the Store tab
 const ACCESSORY_CATEGORIES = [
-  { id: 'jacket', label: '🧥 Jacket' },
-  { id: 'pants',  label: '👖 Pants' },
-  { id: 'hair',   label: '💇 Hair' },
-  { id: 'mask',   label: '😷 Mask' },
-  { id: 'suit',   label: '👔 Suit' },
-  { id: 'shoes',  label: '👞 Shoes' },
+  { id: 'jacket', label: 'Jacket', icon: require('@/assets/category-icons/jacket.svg') },
+  { id: 'pants',  label: 'Pants',  icon: require('@/assets/category-icons/pant.svg') },
+  { id: 'hair',   label: 'Hair',   icon: require('@/assets/category-icons/hair.svg') },
+  { id: 'mask',   label: 'Mask',   icon: require('@/assets/category-icons/mask.svg') },
+  { id: 'suit',   label: 'Suit',   icon: require('@/assets/category-icons/suit.svg') },
+  { id: 'shoes',  label: 'Shoes',  icon: require('@/assets/category-icons/shoes.svg') },
 ] as const;
 type AccessoryCategory = typeof ACCESSORY_CATEGORIES[number]['id'];
 
@@ -113,6 +115,15 @@ function Pill({ label, active, onPress }: { label: string; active: boolean; onPr
       activeOpacity={0.75}
     >
       <Text style={[s.pillText, active && s.pillTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Icon pill for store category tabs */
+function CategoryPill({ icon, active, onPress }: { icon: number; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={[s.pill, s.catPill, active && s.pillActive]} activeOpacity={0.75}>
+      <Image source={icon} style={s.catIcon} tintColor={active ? D.panel : D.muted} contentFit="contain" />
     </TouchableOpacity>
   );
 }
@@ -536,9 +547,9 @@ export default function AvatarEditorScreen() {
               {/* Category pills */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillRow}>
                 {ACCESSORY_CATEGORIES.map(cat => (
-                  <Pill
+                  <CategoryPill
                     key={cat.id}
-                    label={cat.label}
+                    icon={cat.icon}
                     active={selectedAccessoryCategory === cat.id}
                     onPress={() => setSelectedAccessoryCategory(cat.id)}
                   />
@@ -723,6 +734,8 @@ const s = StyleSheet.create({
   pillActive:     { backgroundColor: D.accent, borderColor: D.accent },
   pillText:       { fontSize: 13, fontWeight: '600', color: D.muted },
   pillTextActive: { color: D.panel },
+  catPill:  { paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  catIcon:  { width: 22, height: 22, resizeMode: 'contain' },
 
   // Color swatches
   swatchGrid: {
