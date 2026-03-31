@@ -32,7 +32,7 @@ const ACCESSORY_FILES = {
     men:   { 1: '/accessories/bottoms/MB1.glb', 2: '/accessories/bottoms/MB2.glb' },
   },
   hair:  { unisex: { 1: '/accessories/hair/hair.glb', 2: '/accessories/hair/hair2.glb', 3: '/accessories/hair/hair3.glb', 4: '/accessories/hair/hair4.glb', 5: '/accessories/hair/hair5.glb', 6: '/accessories/hair/hair6.glb' } },
-  mask:  { unisex: { 1: '/accessories/masks/mask.glb' } },
+  mask:  { unisex: { 1: '/accessories/masks/mask.glb', 2: '/plague_mask.glb' } },
   fullSuit: {
     women: { 1: '/accessories/suits/red_suit_women1c.glb', 2: '/accessories/suits/ninja_women.glb', 3: '/accessories/suits/Full3_men.glb' },
     men:   { 3: '/accessories/suits/Full3_men.glb' },
@@ -249,14 +249,14 @@ export function AvatarCustomizer({
         // Auto-scale & position hair2+ to match hair1
         if ((accessories.hair ?? 0) >= 2 && hair1RefGLTF.scene) {
           const hairOffsets: Record<number, [number, number, number]> = {
-            2: [0, 0, 0],
-            3: [0, -0.09, -0.15],
-            4: [0, -0.12, 0.05],
+            2: [0, 0.10, 0.05],
+            3: [0, -0.09, -0.12],
+            4: [0, -0.125, 0.05],
             5: [0, 0.28, 0.02],
-            6: [0, -0.06, 0.07],
+            6: [0, -0.13, 0.07],
           };
           const hairScaleMultiplier: Record<number, number> = {
-            2: 1.0, 3: 1.3, 4: 1.2, 5: 0.5, 6: 1.0,
+            2: .77, 3: 1.25, 4: 1.2, 5: 0.5, 6: 1.15,
           };
           const hairRotation: Record<number, [number, number, number]> = {
             2: [0, 0, 0], 3: [0.3, 0, 0], 4: [0, 0, 0], 5: [0, 0, 0], 6: [0, 0, 0],
@@ -308,11 +308,11 @@ export function AvatarCustomizer({
     // Per-mask config split by gender — tweak female values independently
     const maskConfig: Record<'women' | 'men', Record<number, { offset: [number,number,number]; scale: number }>> = {
       women: {
-        1: { offset: [0, 0.07, 0],    scale: 1.0 },
+        1: { offset: [0, 0.014, 0],    scale: 1.0 },
         2: { offset: [0, 1.44, 0.12], scale: 0.4 },  // plague_mask female — tweak here
       },
       men: {
-        1: { offset: [0, 0.07, 0],    scale: 1.0 },
+        1: { offset: [0, 0.09, 0],    scale: 1.0 },
         2: { offset: [0, 1.53, 0.11], scale: 0.4 },  // plague_mask male — correct
       },
     };
