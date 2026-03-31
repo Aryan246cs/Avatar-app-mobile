@@ -73,9 +73,18 @@ export const ACCESSORY_ITEMS: ItemConfig[] = [
     id: 'hair',
     name: 'Hair',
     type: 'head',
-    file: '/hair.glb',
+    file: '/accessories/hair/hair.glb',
     gender: 'unisex',
     offset: [0, 0, 0],
+  },
+  {
+    id: 'hair2',
+    name: 'Hair 2',
+    type: 'head',
+    file: '/accessories/hair/hair2.glb',
+    gender: 'unisex',
+    offset: [0, 0, 0],
+    scaleOverride: [0.3, 0.3, 0.3], // Scale down - adjust if still too big/small
   },
 ];
 

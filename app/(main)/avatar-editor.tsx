@@ -2,8 +2,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import {
-  Dimensions, ScrollView, StyleSheet,
-  Text, TouchableOpacity, View,
+    Dimensions, ScrollView, StyleSheet,
+    Text, TouchableOpacity, View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -381,6 +381,11 @@ export default function AvatarEditorScreen() {
                   <>
                     <ItemBtn label="OFF" active={accessories.hair === null} onPress={() => selectHair(null)} />
                     <ItemBtn label="1"   active={accessories.hair === 1}    onPress={() => selectHair(1)} />
+                    <ItemBtn label="2"   active={accessories.hair === 2}    onPress={() => selectHair(2)} />
+                    <ItemBtn label="3"   active={accessories.hair === 3}    onPress={() => selectHair(3)} />
+                    <ItemBtn label="4"   active={accessories.hair === 4}    onPress={() => selectHair(4)} />
+                    <ItemBtn label="5"   active={accessories.hair === 5}    onPress={() => selectHair(5)} />
+                    <ItemBtn label="6"   active={accessories.hair === 6}    onPress={() => selectHair(6)} />
                   </>
                 )}
                 {/* Mask */}
@@ -397,8 +402,11 @@ export default function AvatarEditorScreen() {
                     {selectedGender === 'female' && (
                       <ItemBtn label="1" active={accessories.fullSuit === 1} onPress={() => selectFullSuit(1)} />
                     )}
+                    {selectedGender === 'female' && (
+                      <ItemBtn label="2" active={accessories.fullSuit === 2} onPress={() => selectFullSuit(2)} />
+                    )}
                     <ItemBtn
-                      label={selectedGender === 'female' ? '2' : '1'}
+                      label={selectedGender === 'female' ? '3' : '1'}
                       active={accessories.fullSuit === 3}
                       onPress={() => selectFullSuit(3)}
                     />
