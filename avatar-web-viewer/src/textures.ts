@@ -53,3 +53,17 @@ export const TEXTURES = {
 };
 
 export type TextureKey = keyof typeof TEXTURES;
+
+/**
+ * getTextureUrl(value)
+ * Accepts either a known texture key (e.g. "eyes_brown") or a raw hex color
+ * (e.g. "#a3f0cc") and always returns a valid data URL for useTexture().
+ */
+export function getTextureUrl(value: string): string {
+  // Known key
+  if (value in TEXTURES) return TEXTURES[value as TextureKey];
+  // Raw hex — generate a solid-color SVG on the fly
+  if (value.startsWith('#')) return svg(value);
+  // Fallback
+  return TEXTURES.top_default;
+}

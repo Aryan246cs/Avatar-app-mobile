@@ -69,6 +69,12 @@ export const ACCESSORY_ITEMS: ItemConfig[] = [
     // Tweak offset here if mask sits too high/low/forward
     offset: [0, 0, 0],
   },
+  { id: 'plague_mask', 
+    name: 'Mask',
+    type: 'face', file: '/plague_mask.glb', 
+    offset: [0, 0.05, 0.02] 
+  },
+
   {
     id: 'hair',
     name: 'Hair',
