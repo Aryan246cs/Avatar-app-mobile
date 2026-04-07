@@ -46,7 +46,6 @@ const ACCESSORY_FILES = {
 const getGender = (bodyType: BodyType): 'women' | 'men' =>
   bodyType.startsWith('female') ? 'women' : 'men';
 
-// ─── PROPS ───────────────────────────────────────────────────────────────────
 interface AvatarCustomizerProps {
   bodyType: BodyType;
   topTexture: string;
@@ -56,25 +55,21 @@ interface AvatarCustomizerProps {
   hairTexture: string;
   visibleParts?: { hair?: boolean; top?: boolean; pants?: boolean; shoes?: boolean };
   accessories?: {
-    jacket?: number | null;
-    pants?: number | null;
-    hair?: number | null;
-    mask?: number | null;
-    fullSuit?: number | null;
-    shoes?: number | null;
+    jacket?: number | null; pants?: number | null; hair?: number | null;
+    mask?: number | null; fullSuit?: number | null; shoes?: number | null;
+  };
+  accessoryColors?: {
+    jacket?: string | null; pants?: string | null; hair?: string | null;
+    mask?: string | null; fullSuit?: string | null; shoes?: string | null;
   };
 }
 
-// ─── COMPONENT ───────────────────────────────────────────────────────────────
 export function AvatarCustomizer({
-  bodyType,
-  topTexture,
-  pantsTexture,
-  shoesTexture,
-  eyesTexture,
-  hairTexture,
+  bodyType, topTexture, pantsTexture, shoesTexture,
+  eyesTexture, hairTexture,
   visibleParts = { hair: true, top: true, pants: true, shoes: true },
   accessories = { jacket: null, pants: null, hair: null, mask: null, fullSuit: null, shoes: null },
+  accessoryColors = { jacket: null, pants: null, hair: null, mask: null, fullSuit: null, shoes: null },
 }: AvatarCustomizerProps) {
   const groupRef          = useRef<THREE.Group>(null);
   const jacketRef         = useRef<THREE.Group | null>(null);
@@ -213,12 +208,26 @@ export function AvatarCustomizer({
     onRemove?.();
   };
 
+  // Apply a hex color override to all meshes in an object (null = keep original)
+  const applyColor = (obj: THREE.Object3D, hex: string | null | undefined) => {
+    if (!hex) return;
+    const color = new THREE.Color(hex);
+    obj.traverse((n) => {
+      if (n instanceof THREE.Mesh) {
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        mats.forEach((m: any) => { if ('color' in m) { m.color.set(color); m.needsUpdate = true; } });
+      }
+    });
+  };
+
   // ── JACKET ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!jacketPath || !jacketScene) { detach(jacketRef); return; }
-    const t = setTimeout(() => attach(jacketScene, jacketRef, 'body'), 100);
+    const t = setTimeout(() => attach(jacketScene, jacketRef, 'body', undefined, (clone) => {
+      applyColor(clone, accessoryColors.jacket);
+    }), 100);
     return () => { clearTimeout(t); disposeObject(jacketRef.current); };
-  }, [jacketScene, jacketPath, accessories.jacket, bodyType, scene]);
+  }, [jacketScene, jacketPath, accessories.jacket, accessoryColors.jacket, bodyType, scene]);
 
   // ── PANTS ACCESSORY ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -229,12 +238,13 @@ export function AvatarCustomizer({
       return;
     }
     const t = setTimeout(() => {
-      attach(pantsAccScene, pantsAccRef, 'legs', undefined, () => {
+      attach(pantsAccScene, pantsAccRef, 'legs', undefined, (clone) => {
         groupRef.current?.traverse((n) => { if (n.name === 'Pants') n.visible = false; });
+        applyColor(clone, accessoryColors.pants);
       });
     }, 100);
     return () => { clearTimeout(t); disposeObject(pantsAccRef.current); };
-  }, [pantsAccScene, pantsPath, accessories.pants, bodyType, scene]);
+  }, [pantsAccScene, pantsPath, accessories.pants, accessoryColors.pants, bodyType, scene]);
 
   // ── HAIR ACCESSORY ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -340,7 +350,7 @@ export function AvatarCustomizer({
       console.log('🎭 Mask attached. pivot pos:', pivot.position, 'scale:', pivot.scale.x, 'armature children:', armature.children.length);
     }, 100);
     return () => { clearTimeout(t); disposeObject(maskAccRef.current); };
-  }, [maskAccScene, maskPath, accessories.mask, bodyType, scene]);
+  }, [maskAccScene, maskPath, accessories.mask, accessoryColors.mask, bodyType, scene]);
 
   // ── FULL SUIT ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -360,7 +370,6 @@ export function AvatarCustomizer({
       attach(fullSuitScene, fullSuitRef, 'body', undefined, (clone) => {
         groupRef.current?.traverse((n) => {
           if (['Top', 'Pants'].includes(n.name)) n.visible = false;
-          // Hide hair for ninja suit (suit 2)
           if (n.name === 'Hair' && accessories.fullSuit === 2) n.visible = false;
         });
         if (avatarSkeleton) {
@@ -368,10 +377,11 @@ export function AvatarCustomizer({
             if (n instanceof THREE.SkinnedMesh) n.bind(avatarSkeleton!);
           });
         }
+        applyColor(clone, accessoryColors.fullSuit);
       });
     }, 100);
     return () => { clearTimeout(t); disposeObject(fullSuitRef.current); };
-  }, [fullSuitScene, fullSuitPath, accessories.fullSuit, bodyType, scene]);
+  }, [fullSuitScene, fullSuitPath, accessories.fullSuit, accessoryColors.fullSuit, bodyType, scene]);
 
   // ── SHOES ACCESSORY ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -393,10 +403,11 @@ export function AvatarCustomizer({
             if (n instanceof THREE.SkinnedMesh) n.bind(avatarSkeleton!);
           });
         }
+        applyColor(clone, accessoryColors.shoes);
       });
     }, 100);
     return () => { clearTimeout(t); disposeObject(shoesAccRef.current); };
-  }, [shoesAccScene, shoesPath, accessories.shoes, bodyType, scene]);
+  }, [shoesAccScene, shoesPath, accessories.shoes, accessoryColors.shoes, bodyType, scene]);
 
   return <group ref={groupRef} position={[0, 0, 0]} scale={[1, 1, 1]} />;
 }

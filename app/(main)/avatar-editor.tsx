@@ -9,6 +9,7 @@ import { WebView } from 'react-native-webview';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH  = Dimensions.get('window').width;
 const PANEL_HEIGHT  = SCREEN_HEIGHT * 0.58;
 
 // Design tokens — dark theme
@@ -102,6 +103,16 @@ const ACCESSORY_CATEGORIES = [
 ] as const;
 type AccessoryCategory = typeof ACCESSORY_CATEGORIES[number]['id'];
 
+// Preset color swatches per accessory category
+const ACCESSORY_PRESETS: Record<AccessoryCategory, string[]> = {
+  jacket: ['#111827','#1e3a8a','#dc2626','#16a34a','#92400e','#6d28d9','#f9fafb','#374151'],
+  pants:  ['#111827','#1e40af','#374151','#92400e','#065f46','#7c3aed','#f9fafb','#78350f'],
+  hair:   ['#111827','#78350f','#fbbf24','#dc2626','#f3f4f6','#1f2937','#6d28d9','#0369a1'],
+  mask:   ['#111827','#f9fafb','#dc2626','#1e3a8a','#92400e','#374151','#6d28d9','#065f46'],
+  suit:   ['#dc2626','#111827','#1e3a8a','#065f46','#92400e','#6d28d9','#f9fafb','#374151'],
+  shoes:  ['#92400e','#111827','#f3f4f6','#78350f','#1e3a8a','#374151','#dc2626','#065f46'],
+};
+
 // ─── REUSABLE UI COMPONENTS ───────────────────────────────────────────────────
 
 /** Pill-shaped tab button used in all three tab rows */
@@ -160,139 +171,254 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
 }
 
-// ─── RGB SLIDER ───────────────────────────────────────────────────────────────
-function RGBSlider({
-  label, value, color, onChange,
-}: { label: string; value: number; color: string; onChange: (v: number) => void }) {
-  const TRACK_W = Dimensions.get('window').width - 80;
-  const trackRef = useRef<View>(null);
-  const trackX = useRef(0);
+/** RGB → HSV */
+function rgbToHsv(r: number, g: number, b: number) {
+  const rr = r / 255, gg = g / 255, bb = b / 255;
+  const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb), d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === rr) h = ((gg - bb) / d) % 6;
+    else if (max === gg) h = (bb - rr) / d + 2;
+    else h = (rr - gg) / d + 4;
+    h = Math.round(h * 60); if (h < 0) h += 360;
+  }
+  return { h, s: max === 0 ? 0 : d / max, v: max };
+}
 
-  const clamp = (x: number) => Math.round(Math.max(0, Math.min(255, (x / TRACK_W) * 255)));
-
-  const measure = (cb: (x: number) => void) => {
-    trackRef.current?.measure((_fx, _fy, _w, _h, px) => {
-      trackX.current = px;
-      cb(px);
-    });
+/** HSV → RGB */
+function hsvToRgb(h: number, s: number, v: number) {
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6;
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
   };
-
-  return (
-    <View style={sp.sliderRow}>
-      <Text style={sp.sliderLabel}>{label}</Text>
-      <View
-        ref={trackRef}
-        style={[sp.track, { width: TRACK_W }]}
-        onLayout={() => measure(() => {})}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={e => {
-          measure(() => {
-            onChange(clamp(e.nativeEvent.pageX - trackX.current));
-          });
-        }}
-        onResponderMove={e => {
-          onChange(clamp(e.nativeEvent.pageX - trackX.current));
-        }}
-      >
-        <View style={[sp.fill, { width: (value / 255) * TRACK_W, backgroundColor: color }]} />
-        <View style={[sp.thumb, { left: (value / 255) * TRACK_W - 10, borderColor: color }]} />
-      </View>
-      <Text style={sp.sliderValue}>{value}</Text>
-    </View>
-  );
+  return { r: Math.round(f(5) * 255), g: Math.round(f(3) * 255), b: Math.round(f(1) * 255) };
 }
 
 // ─── COLOR PICKER MODAL ───────────────────────────────────────────────────────
-/**
- * Full-screen modal with:
- *  - Live color preview
- *  - R / G / B sliders
- *  - Hex input field
- *  - Apply / Cancel buttons
- */
+
+const GRAD_W = SCREEN_WIDTH - 48 - 28 - 12;
+const GRAD_H = 200;
+const BRIGHT_STRIP_W = 28;
+
 function ColorPickerModal({
-  visible,
-  initialColor,
-  onApply,
-  onClose,
-}: {
-  visible: boolean;
-  initialColor: string;
-  onApply: (hex: string) => void;
-  onClose: () => void;
-}) {
-  const init = hexToRgb(initialColor) ?? { r: 100, g: 100, b: 200 };
-  const [r, setR] = useState(init.r);
-  const [g, setG] = useState(init.g);
-  const [b, setB] = useState(init.b);
-  const [hexInput, setHexInput] = useState(rgbToHex(init.r, init.g, init.b));
+  visible, initialColor, onApply, onClose,
+}: { visible: boolean; initialColor: string; onApply: (hex: string) => void; onClose: () => void }) {
+  const init    = hexToRgb(initialColor.startsWith('#') ? initialColor : '#4472c4') ?? { r: 68, g: 114, b: 196 };
+  const initHsv = rgbToHsv(init.r, init.g, init.b);
 
-  const currentHex = rgbToHex(r, g, b);
+  const [hue,  setHue]  = useState(initHsv.h);
+  const [sat,  setSat]  = useState(initHsv.s);
+  const [val,  setVal]  = useState(initHsv.v);
+  const [hexInput, setHexInput] = useState(initialColor.startsWith('#') ? initialColor.toUpperCase() : '#4472C4');
 
-  const syncFromHex = (raw: string) => {
+  const { r, g, b } = hsvToRgb(hue, sat, val);
+  const currentHex   = rgbToHex(r, g, b).toUpperCase();
+  const pureHue      = `hsl(${Math.round(hue)},100%,50%)`;
+
+  // ── touch refs ──────────────────────────────────────────────────────────
+  const gradRef   = useRef<View>(null); const gradX = useRef(0); const gradY = useRef(0);
+  const brightRef = useRef<View>(null); const brightY = useRef(0);
+  const hueRef    = useRef<View>(null); const hueX = useRef(0);
+
+  const applyGrad = (px: number, py: number) => {
+    const s = Math.max(0, Math.min(1, (px - gradX.current) / GRAD_W));
+    const v = Math.max(0, Math.min(1, 1 - (py - gradY.current) / GRAD_H));
+    setSat(s); setVal(v);
+    const rgb = hsvToRgb(hue, s, v);
+    setHexInput(rgbToHex(rgb.r, rgb.g, rgb.b).toUpperCase());
+  };
+  const applyBright = (py: number) => {
+    const v = Math.max(0, Math.min(1, 1 - (py - brightY.current) / GRAD_H));
+    setVal(v);
+    setHexInput(rgbToHex(...Object.values(hsvToRgb(hue, sat, v)) as [number,number,number]).toUpperCase());
+  };
+  const applyHue = (px: number) => {
+    const h = Math.max(0, Math.min(360, ((px - hueX.current) / (SCREEN_WIDTH - 48)) * 360));
+    setHue(h);
+    setHexInput(rgbToHex(...Object.values(hsvToRgb(h, sat, val)) as [number,number,number]).toUpperCase());
+  };
+
+  const syncRgbChannel = (ch: 0|1|2, n: number) => {
+    const arr: [number,number,number] = [r, g, b]; arr[ch] = n;
+    const hsv = rgbToHsv(...arr); setHue(hsv.h); setSat(hsv.s); setVal(hsv.v);
+    setHexInput(rgbToHex(...arr).toUpperCase());
+  };
+  const syncHex = (raw: string) => {
     setHexInput(raw);
     const parsed = hexToRgb(raw);
-    if (parsed) { setR(parsed.r); setG(parsed.g); setB(parsed.b); }
+    if (parsed) { const hsv = rgbToHsv(parsed.r, parsed.g, parsed.b); setHue(hsv.h); setSat(hsv.s); setVal(hsv.v); }
   };
 
-  const syncFromSlider = (channel: 'r' | 'g' | 'b', val: number) => {
-    const nr = channel === 'r' ? val : r;
-    const ng = channel === 'g' ? val : g;
-    const nb = channel === 'b' ? val : b;
-    if (channel === 'r') setR(val);
-    if (channel === 'g') setG(val);
-    if (channel === 'b') setB(val);
-    setHexInput(rgbToHex(nr, ng, nb));
-  };
+  const crossX = sat * GRAD_W;
+  const crossY = (1 - val) * GRAD_H;
+  const brightThumbY = (1 - val) * GRAD_H;
+  const hueThumbX = (hue / 360) * (SCREEN_WIDTH - 48);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={sp.overlay}>
         <View style={sp.sheet}>
+
           {/* Header */}
           <View style={sp.header}>
-            <Text style={sp.title}>Custom Color</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={sp.closeBtn}>✕</Text>
-            </TouchableOpacity>
+            <Text style={sp.title}>Colors</Text>
+            <TouchableOpacity onPress={onClose}><Text style={sp.closeBtn}>✕</Text></TouchableOpacity>
           </View>
 
-          {/* Preview */}
-          <View style={[sp.preview, { backgroundColor: currentHex }]}>
-            <Text style={[sp.previewLabel, { color: r + g + b > 380 ? '#000' : '#fff' }]}>
-              {currentHex.toUpperCase()}
-            </Text>
+          {/* ── Gradient canvas + brightness strip ── */}
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+
+            {/* 2D canvas: hue bg → white overlay → black overlay */}
+            <View
+              ref={gradRef}
+              style={{ width: GRAD_W, height: GRAD_H, borderRadius: 8, overflow: 'hidden' }}
+              onLayout={() => gradRef.current?.measure((_,__,___,____,px,py) => { gradX.current=px; gradY.current=py; })}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={e => { gradRef.current?.measure((_,__,___,____,px,py) => { gradX.current=px; gradY.current=py; applyGrad(e.nativeEvent.pageX, e.nativeEvent.pageY); }); }}
+              onResponderMove={e => applyGrad(e.nativeEvent.pageX, e.nativeEvent.pageY)}
+            >
+              {/* Base hue */}
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: pureHue }]} />
+              {/* White left→right — 20 vertical strips */}
+              <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'row' }]}>
+                {Array.from({ length: 20 }, (_, i) => (
+                  <View key={i} style={{ flex: 1, backgroundColor: `rgba(255,255,255,${(1 - i / 19).toFixed(2)})` }} />
+                ))}
+              </View>
+              {/* Black top→bottom — 20 horizontal strips */}
+              <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'column' }]}>
+                {Array.from({ length: 20 }, (_, i) => (
+                  <View key={i} style={{ flex: 1, backgroundColor: `rgba(0,0,0,${(i / 19).toFixed(2)})` }} />
+                ))}
+              </View>
+              {/* Crosshair */}
+              <View style={{ position:'absolute', left: crossX-8, top: crossY-8, width:16, height:16, justifyContent:'center', alignItems:'center' }}>
+                <View style={{ position:'absolute', width:16, height:2, backgroundColor:'#fff', shadowColor:'#000', shadowOpacity:0.8, shadowRadius:2, shadowOffset:{width:0,height:0} }} />
+                <View style={{ position:'absolute', width:2, height:16, backgroundColor:'#fff', shadowColor:'#000', shadowOpacity:0.8, shadowRadius:2, shadowOffset:{width:0,height:0} }} />
+              </View>
+            </View>
+
+            {/* Brightness strip (vertical) — white→hue→black */}
+            <View
+              ref={brightRef}
+              style={{ width: BRIGHT_STRIP_W, height: GRAD_H, borderRadius: 8, overflow: 'hidden', position: 'relative' }}
+              onLayout={() => brightRef.current?.measure((_,__,___,____,px,py) => { brightY.current=py; })}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={e => { brightRef.current?.measure((_,__,___,____,px,py) => { brightY.current=py; applyBright(e.nativeEvent.pageY); }); }}
+              onResponderMove={e => applyBright(e.nativeEvent.pageY)}
+            >
+              {/* Top half: white → hue */}
+              <View style={{ flex: 1, flexDirection: 'column' }}>
+                {Array.from({ length: 10 }, (_, i) => {
+                  const t = i / 9;
+                  const { r: hr, g: hg, b: hb } = hsvToRgb(hue, 1, 1);
+                  const rr = Math.round(255 + (hr - 255) * t);
+                  const gg = Math.round(255 + (hg - 255) * t);
+                  const bb = Math.round(255 + (hb - 255) * t);
+                  return <View key={i} style={{ flex: 1, backgroundColor: `rgb(${rr},${gg},${bb})` }} />;
+                })}
+              </View>
+              {/* Bottom half: hue → black */}
+              <View style={{ flex: 1, flexDirection: 'column' }}>
+                {Array.from({ length: 10 }, (_, i) => {
+                  const t = i / 9;
+                  const { r: hr, g: hg, b: hb } = hsvToRgb(hue, 1, 1);
+                  const rr = Math.round(hr * (1 - t));
+                  const gg = Math.round(hg * (1 - t));
+                  const bb = Math.round(hb * (1 - t));
+                  return <View key={i} style={{ flex: 1, backgroundColor: `rgb(${rr},${gg},${bb})` }} />;
+                })}
+              </View>
+              {/* Thumb arrow */}
+              <View style={{ position:'absolute', top: brightThumbY - 8, right: -2, width:20, height:16, justifyContent:'center', alignItems:'center' }}>
+                <Text style={{ fontSize:12, color:'#fff', textShadowColor:'#000', textShadowRadius:2, textShadowOffset:{width:0,height:0} }}>◀</Text>
+              </View>
+            </View>
           </View>
 
-          {/* Sliders */}
-          <RGBSlider label="R" value={r} color={`rgb(${r},0,0)`}   onChange={v => syncFromSlider('r', v)} />
-          <RGBSlider label="G" value={g} color={`rgb(0,${g},0)`}   onChange={v => syncFromSlider('g', v)} />
-          <RGBSlider label="B" value={b} color={`rgb(0,0,${b})`}   onChange={v => syncFromSlider('b', v)} />
+          {/* ── Hue bar — 6 color segments ── */}
+          <View
+            ref={hueRef}
+            style={{ height: 18, borderRadius: 9, overflow: 'hidden', marginBottom: 14, position: 'relative', flexDirection: 'row' }}
+            onLayout={() => hueRef.current?.measure((_,__,___,____,px) => { hueX.current=px; })}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={e => { hueRef.current?.measure((_,__,___,____,px) => { hueX.current=px; applyHue(e.nativeEvent.pageX); }); }}
+            onResponderMove={e => applyHue(e.nativeEvent.pageX)}
+          >
+            {['#ff0000','#ffff00','#00ff00','#00ffff','#0000ff','#ff00ff','#ff0000'].map((c, i, arr) => {
+              if (i === arr.length - 1) return null;
+              return (
+                <View key={i} style={{ flex: 1, flexDirection: 'row' }}>
+                  {Array.from({ length: 8 }, (_, j) => {
+                    const t = j / 7;
+                    const from = hexToRgb(c)!;
+                    const to   = hexToRgb(arr[i + 1])!;
+                    const rr = Math.round(from.r + (to.r - from.r) * t);
+                    const gg = Math.round(from.g + (to.g - from.g) * t);
+                    const bb = Math.round(from.b + (to.b - from.b) * t);
+                    return <View key={j} style={{ flex: 1, backgroundColor: `rgb(${rr},${gg},${bb})` }} />;
+                  })}
+                </View>
+              );
+            })}
+            {/* Hue thumb */}
+            <View style={{ position:'absolute', top:-3, left: hueThumbX - 6, width:12, height:24, borderRadius:6, borderWidth:2.5, borderColor:'#fff', shadowColor:'#000', shadowOpacity:0.5, shadowRadius:3, shadowOffset:{width:0,height:0}, elevation:4 }} />
+          </View>
 
-          {/* Hex input */}
-          <View style={sp.hexRow}>
-            <Text style={sp.hexLabel}>HEX</Text>
+          {/* ── New / Current preview ── */}
+          <View style={{ flexDirection:'row', gap:12, marginBottom:12 }}>
+            <View style={{ flex:1, alignItems:'center', gap:4 }}>
+              <View style={{ width:'100%', height:36, borderRadius:8, backgroundColor: currentHex, borderWidth:1, borderColor:'#333' }} />
+              <Text style={{ fontSize:11, fontWeight:'600', color:'#9ca3af' }}>New</Text>
+            </View>
+            <View style={{ flex:1, alignItems:'center', gap:4 }}>
+              <View style={{ width:'100%', height:36, borderRadius:8, backgroundColor: initialColor.startsWith('#') ? initialColor : currentHex, borderWidth:1, borderColor:'#333' }} />
+              <Text style={{ fontSize:11, fontWeight:'600', color:'#9ca3af' }}>Current</Text>
+            </View>
+          </View>
+
+          {/* ── RGB inputs ── */}
+          <View style={{ flexDirection:'row', gap:10, marginBottom:10 }}>
+            {(['R','G','B'] as const).map((ch, i) => (
+              <View key={ch} style={{ flex:1, alignItems:'center', gap:4 }}>
+                <Text style={{ fontSize:11, fontWeight:'700', color:'#9ca3af' }}>{ch}</Text>
+                <TextInput
+                  style={sp.rgbInput}
+                  value={String([r,g,b][i])}
+                  keyboardType="numeric" maxLength={3}
+                  onChangeText={t => syncRgbChannel(i as 0|1|2, Math.max(0, Math.min(255, parseInt(t)||0)))}
+                />
+              </View>
+            ))}
+          </View>
+
+          {/* ── Hex input ── */}
+          <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:18 }}>
+            <Text style={{ fontSize:12, fontWeight:'700', color:'#9ca3af', width:28 }}>Hex</Text>
             <TextInput
               style={sp.hexInput}
               value={hexInput}
-              onChangeText={syncFromHex}
-              autoCapitalize="none"
+              onChangeText={syncHex}
+              autoCapitalize="characters"
               autoCorrect={false}
               maxLength={7}
               placeholderTextColor="#555"
             />
           </View>
 
-          {/* Actions */}
+          {/* ── Actions ── */}
           <View style={sp.actions}>
             <TouchableOpacity onPress={onClose} style={sp.cancelBtn}>
               <Text style={sp.cancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { onApply(currentHex); onClose(); }} style={sp.applyBtn}>
-              <Text style={sp.applyText}>Apply</Text>
+              <Text style={sp.applyText}>OK</Text>
             </TouchableOpacity>
           </View>
+
         </View>
       </View>
     </Modal>
@@ -317,12 +443,22 @@ export default function AvatarEditorScreen() {
     fullSuit: null as number | null, shoes:  null as number | null,
   });
 
+  // Accessory colors — one per category, null = default (original GLB color)
+  const DEFAULT_ACCESSORY_COLORS: Record<AccessoryCategory, string> = {
+    jacket: '#4169e1', pants: '#374151', hair: '#1f2937',
+    mask: '#6b7280', suit: '#dc2626', shoes: '#92400e',
+  };
+  const [accessoryColors, setAccessoryColors] = useState<Record<AccessoryCategory, string | null>>({
+    jacket: null, pants: null, hair: null, mask: null, suit: null, shoes: null,
+  });
+
   // Main tab: Body | Colors | Store
   const [mainTab, setMainTab] = useState<'body' | 'colors' | 'store'>('body');
 
-  // Custom color picker
-  const [pickerVisible, setPickerVisible] = useState(false);
+  // Color picker — shared for Colors tab and Store tab
+  const [pickerVisible,      setPickerVisible]      = useState(false);
   const [pickerInitialColor, setPickerInitialColor] = useState('#4169e1');
+  const [pickerTarget,       setPickerTarget]       = useState<'colors' | AccessoryCategory>('colors');
 
   const webViewRef = useRef<WebView>(null);
   const avatarViewerUrl = getAvatarViewerUrl();
@@ -347,26 +483,56 @@ export default function AvatarEditorScreen() {
     }
   };
 
-  // Called when user picks a custom color from the modal
+  // Called when user picks a color from the modal
   const handleCustomColor = (hex: string) => {
-    const part = avatarParts.find(p => p.id === selectedPart);
-    if (!part) return;
-    // Send the raw hex directly — the web viewer will apply it as a solid color
-    setSelectedTextures(prev => ({ ...prev, [selectedPart]: hex }));
-    send(part.messageType, hex);
+    if (pickerTarget === 'colors') {
+      // Colors tab — apply to avatar body part
+      const part = avatarParts.find(p => p.id === selectedPart);
+      if (!part) return;
+      setSelectedTextures(prev => ({ ...prev, [selectedPart]: hex }));
+      send(part.messageType, hex);
+    } else {
+      // Store tab — apply color to accessory
+      setAccessoryColors(prev => ({ ...prev, [pickerTarget]: hex }));
+      const typeMap: Record<AccessoryCategory, string> = {
+        jacket: 'SET_JACKET_COLOR', pants: 'SET_PANTS_COLOR',
+        hair: 'SET_HAIR_COLOR', mask: 'SET_MASK_COLOR',
+        suit: 'SET_SUIT_COLOR', shoes: 'SET_SHOES_COLOR',
+      };
+      send(typeMap[pickerTarget as AccessoryCategory], hex);
+    }
   };
 
-  const selectJacket  = (v: number | null) => { setAccessories(p => ({ ...p, jacket:   v })); sendSelection('SET_JACKET',          v); };
-  const selectPants   = (v: number | null) => { setAccessories(p => ({ ...p, pants:    v })); sendSelection('SET_PANTS_ACCESSORY', v); };
-  const selectHair    = (v: number | null) => { setAccessories(p => ({ ...p, hair:     v })); sendSelection('SET_HAIR_ACCESSORY',  v); };
-  const selectMask    = (v: number | null) => { setAccessories(p => ({ ...p, mask:     v })); sendSelection('SET_MASK_ACCESSORY',  v); };
-  const selectFullSuit= (v: number | null) => { setAccessories(p => ({ ...p, fullSuit: v })); sendSelection('SET_FULL_SUIT',       v); };
-  const selectShoes   = (v: number | null) => { setAccessories(p => ({ ...p, shoes:    v })); sendSelection('SET_SHOES_ACCESSORY', v); };
+  // Open color picker for a store accessory category
+  const openStorePicker = (cat: AccessoryCategory) => {
+    setPickerTarget(cat);
+    setPickerInitialColor(accessoryColors[cat] ?? DEFAULT_ACCESSORY_COLORS[cat]);
+    setPickerVisible(true);
+  };
+
+  // Send accessory color or reset to default (null)
+  const applyAccessoryColor = (cat: AccessoryCategory, hex: string | null) => {
+    setAccessoryColors(prev => ({ ...prev, [cat]: hex }));
+    const typeMap: Record<AccessoryCategory, string> = {
+      jacket: 'SET_JACKET_COLOR', pants: 'SET_PANTS_COLOR',
+      hair: 'SET_HAIR_COLOR', mask: 'SET_MASK_COLOR',
+      suit: 'SET_SUIT_COLOR', shoes: 'SET_SHOES_COLOR',
+    };
+    send(typeMap[cat], hex ?? 'default');
+  };
+
+  const selectJacket   = (v: number | null) => { setAccessories(p => ({ ...p, jacket:   v })); sendSelection('SET_JACKET',          v); };
+  const selectPants    = (v: number | null) => { setAccessories(p => ({ ...p, pants:    v })); sendSelection('SET_PANTS_ACCESSORY', v); };
+  const selectHair     = (v: number | null) => { setAccessories(p => ({ ...p, hair:     v })); sendSelection('SET_HAIR_ACCESSORY',  v); };
+  const selectMask     = (v: number | null) => { setAccessories(p => ({ ...p, mask:     v })); sendSelection('SET_MASK_ACCESSORY',  v); };
+  const selectFullSuit = (v: number | null) => { setAccessories(p => ({ ...p, fullSuit: v })); sendSelection('SET_FULL_SUIT',       v); };
+  const selectShoes    = (v: number | null) => { setAccessories(p => ({ ...p, shoes:    v })); sendSelection('SET_SHOES_ACCESSORY', v); };
 
   const handleReset = () => {
     setSelectedGender('female'); setSelectedBody('female');
     setSelectedTextures({ eyes: 'eyes_default', hair: 'hair_default', top: 'top_default', pants: 'pants_default', shoes: 'shoes_default' });
     setAccessories({ jacket: null, pants: null, hair: null, mask: null, fullSuit: null, shoes: null });
+    setAccessoryColors({ jacket: null, pants: null, hair: null, mask: null, suit: null, shoes: null });
     send('SET_BODY', 'female');
     send('SET_EYES', 'eyes_default'); send('SET_HAIR', 'hair_default');
     send('SET_TOP', 'top_default');   send('SET_PANTS', 'pants_default'); send('SET_SHOES', 'shoes_default');
@@ -380,6 +546,7 @@ export default function AvatarEditorScreen() {
 
   // ── RENDER ─────────────────────────────────────────────────────────────
   return (
+    <>
     <View style={s.root}>
 
       {/* ── TOP: Avatar viewer (fills remaining space above panel) ── */}
@@ -510,6 +677,7 @@ export default function AvatarEditorScreen() {
                     activeOpacity={0.8}
                     onPress={() => {
                       const cur = selectedTextures[selectedPart as keyof typeof selectedTextures];
+                      setPickerTarget('colors');
                       setPickerInitialColor(cur.startsWith('#') ? cur : '#4169e1');
                       setPickerVisible(true);
                     }}
@@ -520,13 +688,6 @@ export default function AvatarEditorScreen() {
                 </View>
               </View>
 
-              {/* Color picker modal */}
-              <ColorPickerModal
-                visible={pickerVisible}
-                initialColor={pickerInitialColor}
-                onApply={handleCustomColor}
-                onClose={() => setPickerVisible(false)}
-              />
             </View>
           )}
 
@@ -615,6 +776,58 @@ export default function AvatarEditorScreen() {
                   </>
                 )}
               </View>
+
+              {/* ── Color palette ── */}
+              <Text style={[s.sectionLabel, { marginTop: 20 }]}>Color</Text>
+              <View style={s.swatchGrid}>
+                {/* Default swatch */}
+                <View style={s.swatchItem}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => applyAccessoryColor(selectedAccessoryCategory, null)}
+                    style={[s.swatchWrap]}>
+                    <View style={[s.swatch,
+                      { backgroundColor: DEFAULT_ACCESSORY_COLORS[selectedAccessoryCategory] },
+                      accessoryColors[selectedAccessoryCategory] === null && s.swatchSelected,
+                    ]} />
+                  </TouchableOpacity>
+                  <Text style={s.swatchLabel}>Default</Text>
+                </View>
+
+                {/* Preset swatches */}
+                {ACCESSORY_PRESETS[selectedAccessoryCategory].map(hex => (
+                  <View key={hex} style={s.swatchItem}>
+                    <TouchableOpacity activeOpacity={0.8}
+                      onPress={() => applyAccessoryColor(selectedAccessoryCategory, hex)}
+                      style={s.swatchWrap}>
+                      <View style={[s.swatch, { backgroundColor: hex },
+                        accessoryColors[selectedAccessoryCategory] === hex && s.swatchSelected,
+                      ]} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                {/* Custom picker */}
+                <View style={s.swatchItem}>
+                  <TouchableOpacity style={s.customSwatchBtn} activeOpacity={0.8}
+                    onPress={() => openStorePicker(selectedAccessoryCategory)}>
+                    <Text style={s.customSwatchPlus}>+</Text>
+                  </TouchableOpacity>
+                  <Text style={s.swatchLabel}>Custom</Text>
+                </View>
+              </View>
+
+              {/* Selected color hex display */}
+              {accessoryColors[selectedAccessoryCategory] && (
+                <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginTop:4 }}>
+                  <View style={{ width:14, height:14, borderRadius:7,
+                    backgroundColor: accessoryColors[selectedAccessoryCategory]!,
+                    borderWidth:1, borderColor:D.border }} />
+                  <Text style={{ fontSize:12, color:D.subtext }}>
+                    {accessoryColors[selectedAccessoryCategory]!.toUpperCase()}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -632,6 +845,15 @@ export default function AvatarEditorScreen() {
 
       </View>
     </View>
+
+    {/* ── Color picker modal — always mounted at root so it works from any tab ── */}
+    <ColorPickerModal
+      visible={pickerVisible}
+      initialColor={pickerInitialColor}
+      onApply={handleCustomColor}
+      onClose={() => setPickerVisible(false)}
+    />
+    </>
   );
 }
 
@@ -788,78 +1010,17 @@ const s = StyleSheet.create({
 
 // ─── COLOR PICKER MODAL STYLES ────────────────────────────────────────────────
 const sp = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 20,
-  },
-  title:    { fontSize: 18, fontWeight: '700', color: '#f3f4f6' },
-  closeBtn: { fontSize: 18, color: '#6b7280', paddingHorizontal: 4 },
-
-  // Live preview
-  preview: {
-    height: 72, borderRadius: 16,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 24,
-  },
-  previewLabel: { fontSize: 16, fontWeight: '700', letterSpacing: 2 },
-
-  // Sliders
-  sliderRow: {
-    flexDirection: 'row', alignItems: 'center',
-    marginBottom: 18, gap: 10,
-  },
-  sliderLabel: { width: 16, fontSize: 13, fontWeight: '700', color: '#9ca3af' },
-  track: {
-    height: 8, borderRadius: 4,
-    backgroundColor: '#2a2a2a',
-    position: 'relative', justifyContent: 'center',
-  },
-  fill: { position: 'absolute', left: 0, top: 0, height: 8, borderRadius: 4 },
-  thumb: {
-    position: 'absolute', width: 20, height: 20,
-    borderRadius: 10, backgroundColor: '#fff',
-    borderWidth: 2.5, top: -6,
-    shadowColor: '#000', shadowOpacity: 0.4,
-    shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  sliderValue: { width: 32, fontSize: 12, color: '#9ca3af', textAlign: 'right' },
-
-  // Hex input
-  hexRow: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 12, marginTop: 4, marginBottom: 24,
-  },
-  hexLabel: { fontSize: 13, fontWeight: '700', color: '#9ca3af', width: 36 },
-  hexInput: {
-    flex: 1, height: 44, borderRadius: 10,
-    backgroundColor: '#2a2a2a', color: '#f3f4f6',
-    paddingHorizontal: 14, fontSize: 15,
-    fontFamily: 'monospace', letterSpacing: 1,
-    borderWidth: 1, borderColor: '#333',
-  },
-
-  // Actions
-  actions: { flexDirection: 'row', gap: 12 },
-  cancelBtn: {
-    flex: 1, height: 48, borderRadius: 14,
-    borderWidth: 1.5, borderColor: '#333',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  cancelText: { fontSize: 15, fontWeight: '600', color: '#6b7280' },
-  applyBtn: {
-    flex: 2, height: 48, borderRadius: 14,
-    backgroundColor: '#fff',
-    justifyContent: 'center', alignItems: 'center',
-  },
+  overlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  sheet:     { backgroundColor: '#1a1a1a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  header:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  title:     { fontSize: 18, fontWeight: '700', color: '#f3f4f6' },
+  closeBtn:  { fontSize: 18, color: '#6b7280', paddingHorizontal: 4 },
+  rgbInput:  { width: '100%', height: 40, borderRadius: 8, backgroundColor: '#2a2a2a', color: '#f3f4f6', textAlign: 'center', fontSize: 14, fontWeight: '600', borderWidth: 1, borderColor: '#333' },
+  hexInput:  { flex: 1, height: 40, borderRadius: 8, backgroundColor: '#2a2a2a', color: '#f3f4f6', paddingHorizontal: 12, fontSize: 14, letterSpacing: 1, borderWidth: 1, borderColor: '#333' },
+  actions:   { flexDirection: 'row', gap: 12 },
+  cancelBtn: { flex: 1, height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: '#333', justifyContent: 'center', alignItems: 'center' },
+  cancelText:{ fontSize: 15, fontWeight: '600', color: '#6b7280' },
+  applyBtn:  { flex: 2, height: 48, borderRadius: 14, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
   applyText: { fontSize: 15, fontWeight: '700', color: '#0f0f0f' },
 });
+

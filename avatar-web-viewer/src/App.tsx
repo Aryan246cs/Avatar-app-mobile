@@ -3,7 +3,7 @@ import type { BodyType } from './AvatarCustomizer';
 import { Scene } from './Scene';
 
 interface MessageData {
-  type: 'SET_TOP' | 'SET_PANTS' | 'SET_SHOES' | 'SET_EYES' | 'SET_HAIR' | 'SET_BODY' | 'TOGGLE_VISIBILITY' | 'SET_JACKET' | 'SET_PANTS_ACCESSORY' | 'SET_HAIR_ACCESSORY' | 'SET_MASK_ACCESSORY' | 'SET_FULL_SUIT' | 'SET_SHOES_ACCESSORY';
+  type: string;
   value: string;
   part?: string;
   visible?: boolean;
@@ -17,106 +17,58 @@ function App() {
   const [shoesTexture, setShoesTexture] = useState<string>('shoes_default');
   const [eyesTexture, setEyesTexture] = useState<string>('eyes_default');
   const [hairTexture, setHairTexture] = useState<string>('hair_default');
-  const [visibleParts, setVisibleParts] = useState({
-    hair: true,
-    top: true,
-    pants: true,
-    shoes: true,
-  });
+  const [visibleParts, setVisibleParts] = useState({ hair: true, top: true, pants: true, shoes: true });
   const [accessories, setAccessories] = useState({
-    jacket: null as number | null,
-    pants: null as number | null,
-    hair: null as number | null,
-    mask: null as number | null,
-    fullSuit: null as number | null,
-    shoes: null as number | null,
+    jacket: null as number | null, pants: null as number | null,
+    hair: null as number | null, mask: null as number | null,
+    fullSuit: null as number | null, shoes: null as number | null,
+  });
+  // Accessory colors — null means use original GLB material
+  const [accessoryColors, setAccessoryColors] = useState({
+    jacket: null as string | null, pants: null as string | null,
+    hair: null as string | null, mask: null as string | null,
+    fullSuit: null as string | null, shoes: null as string | null,
   });
 
   useEffect(() => {
-    // Listen for messages from the parent (Expo WebView)
     const handleMessage = (event: MessageEvent) => {
       try {
         const data: MessageData = JSON.parse(event.data);
-        
         switch (data.type) {
           case 'SET_BODY':
-            if (['female', 'female1', 'female2', 'female3', 'male', 'male1', 'male2', 'male3'].includes(data.value)) {
+            if (['female','female1','female2','female3','male','male1','male2','male3'].includes(data.value))
               setBodyType(data.value as BodyType);
-            }
             break;
-          case 'SET_TOP':
-            setTopTexture(data.value);
-            break;
-          case 'SET_PANTS':
-            setPantsTexture(data.value);
-            break;
-          case 'SET_SHOES':
-            setShoesTexture(data.value);
-            break;
-          case 'SET_EYES':
-            setEyesTexture(data.value);
-            break;
-          case 'SET_HAIR':
-            setHairTexture(data.value);
-            break;
+          case 'SET_TOP':    setTopTexture(data.value);   break;
+          case 'SET_PANTS':  setPantsTexture(data.value); break;
+          case 'SET_SHOES':  setShoesTexture(data.value); break;
+          case 'SET_EYES':   setEyesTexture(data.value);  break;
+          case 'SET_HAIR':   setHairTexture(data.value);  break;
           case 'TOGGLE_VISIBILITY':
-            if (data.part && data.visible !== undefined) {
-              setVisibleParts(prev => ({
-                ...prev,
-                [data.part!]: data.visible
-              }));
-            }
+            if (data.part && data.visible !== undefined)
+              setVisibleParts(prev => ({ ...prev, [data.part!]: data.visible }));
             break;
-          case 'SET_JACKET':
-            setAccessories(prev => ({
-              ...prev,
-              jacket: data.selection ?? null
-            }));
-            break;
-          case 'SET_PANTS_ACCESSORY':
-            setAccessories(prev => ({
-              ...prev,
-              pants: data.selection ?? null
-            }));
-            break;
-          case 'SET_HAIR_ACCESSORY':
-            setAccessories(prev => ({
-              ...prev,
-              hair: data.selection ?? null
-            }));
-            break;
-          case 'SET_MASK_ACCESSORY':
-            setAccessories(prev => ({
-              ...prev,
-              mask: data.selection ?? null
-            }));
-            break;
-          case 'SET_FULL_SUIT':
-            setAccessories(prev => ({
-              ...prev,
-              fullSuit: data.selection ?? null
-            }));
-            break;
-          case 'SET_SHOES_ACCESSORY':
-            setAccessories(prev => ({
-              ...prev,
-              shoes: data.selection ?? null
-            }));
-            break;
-          default:
-            console.warn('Unknown message type:', data.type);
+          case 'SET_JACKET':          setAccessories(p => ({ ...p, jacket:   data.selection ?? null })); break;
+          case 'SET_PANTS_ACCESSORY': setAccessories(p => ({ ...p, pants:    data.selection ?? null })); break;
+          case 'SET_HAIR_ACCESSORY':  setAccessories(p => ({ ...p, hair:     data.selection ?? null })); break;
+          case 'SET_MASK_ACCESSORY':  setAccessories(p => ({ ...p, mask:     data.selection ?? null })); break;
+          case 'SET_FULL_SUIT':       setAccessories(p => ({ ...p, fullSuit: data.selection ?? null })); break;
+          case 'SET_SHOES_ACCESSORY': setAccessories(p => ({ ...p, shoes:    data.selection ?? null })); break;
+          // ── Accessory color messages ──
+          case 'SET_JACKET_COLOR': setAccessoryColors(p => ({ ...p, jacket:   data.value === 'default' ? null : data.value })); break;
+          case 'SET_PANTS_COLOR':  setAccessoryColors(p => ({ ...p, pants:    data.value === 'default' ? null : data.value })); break;
+          case 'SET_HAIR_COLOR':   setAccessoryColors(p => ({ ...p, hair:     data.value === 'default' ? null : data.value })); break;
+          case 'SET_MASK_COLOR':   setAccessoryColors(p => ({ ...p, mask:     data.value === 'default' ? null : data.value })); break;
+          case 'SET_SUIT_COLOR':   setAccessoryColors(p => ({ ...p, fullSuit: data.value === 'default' ? null : data.value })); break;
+          case 'SET_SHOES_COLOR':  setAccessoryColors(p => ({ ...p, shoes:    data.value === 'default' ? null : data.value })); break;
+          default: console.warn('Unknown message type:', data.type);
         }
       } catch (error) {
         console.error('Error parsing message:', error);
       }
     };
-
-    // Listen for messages from parent window (WebView)
     window.addEventListener('message', handleMessage);
-    
-    // Also listen for postMessage from React Native WebView
     document.addEventListener('message', handleMessage as any);
-
     return () => {
       window.removeEventListener('message', handleMessage);
       document.removeEventListener('message', handleMessage as any);
@@ -125,8 +77,7 @@ function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0 }}>
-      {/* 3D Scene */}
-      <Scene 
+      <Scene
         bodyType={bodyType}
         topTexture={topTexture}
         pantsTexture={pantsTexture}
@@ -135,6 +86,7 @@ function App() {
         hairTexture={hairTexture}
         visibleParts={visibleParts}
         accessories={accessories}
+        accessoryColors={accessoryColors}
       />
     </div>
   );
