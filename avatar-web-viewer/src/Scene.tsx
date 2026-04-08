@@ -10,32 +10,20 @@ interface SceneProps {
   shoesTexture: string;
   eyesTexture: string;
   hairTexture: string;
-  visibleParts?: {
-    hair?: boolean;
-    top?: boolean;
-    pants?: boolean;
-    shoes?: boolean;
-  };
-  // All number | null — matches AvatarCustomizer exactly
+  visibleParts?: { hair?: boolean; top?: boolean; pants?: boolean; shoes?: boolean };
   accessories?: {
-    jacket?: number | null;
-    pants?: number | null;
-    hair?: number | null;
-    mask?: number | null;
-    fullSuit?: number | null;
-    shoes?: number | null;
+    jacket?: number | null; pants?: number | null; hair?: number | null;
+    mask?: number | null; fullSuit?: number | null; shoes?: number | null;
+  };
+  accessoryColors?: {
+    jacket?: string | null; pants?: string | null; hair?: string | null;
+    mask?: string | null; fullSuit?: string | null; shoes?: string | null;
   };
 }
 
 export function Scene({
-  bodyType,
-  topTexture,
-  pantsTexture,
-  shoesTexture,
-  eyesTexture,
-  hairTexture,
-  visibleParts,
-  accessories,
+  bodyType, topTexture, pantsTexture, shoesTexture,
+  eyesTexture, hairTexture, visibleParts, accessories, accessoryColors,
 }: SceneProps) {
   return (
     <div style={{ width: '100%', height: '100vh', background: '#f8f9fa' }}>
@@ -61,6 +49,7 @@ export function Scene({
             hairTexture={hairTexture}
             visibleParts={visibleParts}
             accessories={accessories}
+            accessoryColors={accessoryColors}
           />
         </Suspense>
 
