@@ -22,7 +22,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="avatar-editor"
         options={{
-          title: 'Editor',
+          title: '3D Playground',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />
@@ -36,7 +36,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="ai-generate"
         options={{
-          title: 'AI Generate',
+          title: '2D Studio',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="sparkles" color={color} />,
         }}
       />
