@@ -24,18 +24,60 @@ export type BodyType = keyof typeof BODY_MAP;
 // ─── ACCESSORY FILE MAP ───────────────────────────────────────────────────────
 const ACCESSORY_FILES = {
   jacket: {
-    women: { 1: '/accessories/jackets/FJ1.glb', 2: '/accessories/jackets/FJ2.glb', 3: '/accessories/jackets/FJ3.glb' },
-    men:   { 1: '/accessories/jackets/MJ1.glb', 2: '/accessories/jackets/MJ2.glb' },
+    women: {
+      1: '/accessories/jackets/FJ1.glb',
+      2: '/accessories/jackets/FJ2.glb',
+      3: '/accessories/jackets/FJ3.glb',
+      4: '/accessories/jackets/J4.glb',
+      5: '/accessories/jackets/J5.glb',
+      6: '/accessories/jackets/J6.glb',
+      7: '/accessories/jackets/J7.glb',
+      8: '/accessories/jackets/J8.glb',
+    },
+    men: {
+      1: '/accessories/jackets/MJ1.glb',
+      2: '/accessories/jackets/MJ2.glb',
+      3: '/accessories/jackets/J4.glb',
+      4: '/accessories/jackets/J5.glb',
+      5: '/accessories/jackets/J6.glb',
+      6: '/accessories/jackets/J7.glb',
+      7: '/accessories/jackets/J8.glb',
+    }
   },
   pants: {
-    women: { 1: '/accessories/bottoms/FB1.glb', 2: '/accessories/bottoms/FB2.glb' },
-    men:   { 1: '/accessories/bottoms/MB1.glb', 2: '/accessories/bottoms/MB2.glb' },
+    women: {
+      1: '/accessories/bottoms/FB1.glb',
+      2: '/accessories/bottoms/FB2.glb',
+      3: '/accessories/bottoms/P3.glb',
+      4: '/accessories/bottoms/P4.glb',
+      5: '/accessories/bottoms/P5.glb',
+      6: '/accessories/bottoms/P6.glb',
+      7: '/accessories/bottoms/P7.glb',
+    },
+    men: {
+      1: '/accessories/bottoms/MB1.glb',
+      2: '/accessories/bottoms/MB2.glb',
+      3: '/accessories/bottoms/P3.glb',
+      4: '/accessories/bottoms/P4.glb',
+      5: '/accessories/bottoms/P5.glb',
+      6: '/accessories/bottoms/P6.glb',
+      7: '/accessories/bottoms/P7.glb',
+    }
   },
   hair:  { unisex: { 1: '/accessories/hair/hair.glb', 2: '/accessories/hair/hair2.glb', 3: '/accessories/hair/hair3.glb', 4: '/accessories/hair/hair4.glb', 5: '/accessories/hair/hair5.glb', 6: '/accessories/hair/hair6.glb' } },
   mask:  { unisex: { 1: '/accessories/masks/mask.glb' } },
   fullSuit: {
-    women: { 1: '/accessories/suits/red_suit_women1c.glb', 2: '/accessories/suits/ninja_women.glb', 3: '/accessories/suits/Full3_men.glb' },
-    men:   { 3: '/accessories/suits/Full3_men.glb' },
+    women: {
+      1: '/accessories/suits/Female full suit/red_suit_women1c.glb',
+      2: '/accessories/suits/Female full suit/ninja_women.glb',
+      3: '/accessories/suits/Female full suit/cyberpunk_women.glb',
+      4: '/accessories/suits/Female full suit/female 4 full suit.glb',
+      5: '/accessories/suits/Female full suit/female 5 full suit.glb',
+      6: '/accessories/suits/Female full suit/female 6 full suit.glb',
+      7: '/accessories/suits/Female full suit/female 7 full suit.glb',
+      8: '/accessories/suits/Female full suit/female 8 full suit.glb',
+    },
+    men: { 3: '/accessories/suits/Full3_men.glb' },
   },
   shoes: {
     women: { 1: '/accessories/shoes/Shoes1_Women.glb', 2: '/accessories/shoes/Shoes2_Women.glb' },
@@ -215,8 +257,98 @@ export function AvatarCustomizer({
 
   // ── JACKET ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!jacketPath || !jacketScene) { detach(jacketRef); return; }
-    const t = setTimeout(() => attach(jacketScene, jacketRef, 'body'), 100);
+    if (!jacketPath || !jacketScene) {
+      detach(jacketRef);
+      groupRef.current?.traverse((n: THREE.Object3D) => {
+        if (n.name === 'Top') n.visible = true;
+      });
+      return;
+    }
+    const t = setTimeout(() => {
+      // Old RPM jackets (FJ1-3, MJ1-2) have root node 'Wolf3D_Outfit_Top' - use attach()
+      // New Sketchfab jackets (J4-J8) have root 'Sketchfab_model' - need manual positioning
+      const isSketchfab = jacketScene.name === 'Sketchfab_model' || 
+                          jacketScene.children?.[0]?.name === 'Sketchfab_model' ||
+                          jacketScene.getObjectByName('Sketchfab_model') !== undefined;
+
+      if (!isSketchfab) {
+        // Old RPM jacket - restore body first, then attach
+        groupRef.current?.traverse((n: THREE.Object3D) => {
+          if (n.name === 'Top') n.visible = true;
+        });
+        attach(jacketScene, jacketRef, 'body');
+        return;
+      }
+
+      // New Sketchfab jacket - hardcoded scale + position per jacket
+      // Reference: FJ1 sizeX=0.957, centerY=1.262
+      const REF_SIZE_X = 0.957;
+      const REF_CENTER_Y = 1.262;
+
+      const jacketConfigs: Record<string, { sizeX: number; centerY: number; scaleMultiplier?: number; zOffset?: number; yOffset?: number }> = {
+        'J4.glb': { sizeX: 5.556, centerY: 5.657, scaleMultiplier: 1.1, zOffset: 0.08, yOffset: -0.1 },
+        'J5.glb': { sizeX: 5.340, centerY: 5.742, scaleMultiplier: 1.056, zOffset: 0.08, yOffset: -0.1 },
+        'J6.glb': { sizeX: 3.847, centerY: -0.168, yOffset: -0.5 },
+        'J7.glb': { sizeX: 1.280, centerY: 0.008, yOffset: -1.0, scaleMultiplier: 0.8 },
+        'J8.glb': { sizeX: 105.398, centerY: 86.188 },
+      };
+
+      const fileName = jacketPath.split('/').pop() ?? '';
+      const cfg = jacketConfigs[fileName];
+
+      if (!groupRef.current) return;
+      let armature: THREE.Object3D | undefined;
+      groupRef.current.traverse((n) => { if (n.name === 'Armature') armature = n; });
+      if (!armature) return;
+
+      const clone = jacketScene.clone();
+
+      if (cfg) {
+        // Scale to match FJ1's width
+        const scale = (REF_SIZE_X / cfg.sizeX) * (cfg.scaleMultiplier ?? 1.0);
+        clone.scale.set(scale, scale, scale);
+
+        // Find Spine2 bone world position - this is the torso center
+        let spine2WorldY = REF_CENTER_Y; // fallback
+        groupRef.current.traverse((n) => {
+          if (n.name === 'Spine2' || n.name === 'Spine1') {
+            const worldPos = new THREE.Vector3();
+            n.getWorldPosition(worldPos);
+            // Convert to armature local space
+            const localPos = armature!.worldToLocal(worldPos.clone());
+            spine2WorldY = localPos.y;
+          }
+        });
+
+        // Position jacket center at spine2
+        clone.position.set(0, spine2WorldY - cfg.centerY * scale + (cfg.yOffset ?? 0), cfg.zOffset ?? 0);
+      }
+
+      // Force materials visible
+      clone.traverse((n: THREE.Object3D) => {
+        n.visible = true;
+        if (n instanceof THREE.Mesh && n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach((m: any) => {
+            m.transparent = false; m.opacity = 1;
+            m.alphaTest = 0; m.depthWrite = true;
+            m.side = THREE.DoubleSide; m.needsUpdate = true;
+          });
+          n.frustumCulled = false;
+        }
+      });
+
+      disposeObject(jacketRef.current);
+      armature.add(clone);
+      jacketRef.current = clone;
+
+      // For static jackets: hide Top shirt only
+      if (cfg) {
+        groupRef.current?.traverse((n: THREE.Object3D) => {
+          if (n.name === 'Top') n.visible = false;
+        });
+      }
+    }, 150); // slightly longer delay to ensure avatar is loaded
     return () => { clearTimeout(t); disposeObject(jacketRef.current); };
   }, [jacketScene, jacketPath, accessories.jacket, bodyType, scene]);
 
@@ -229,9 +361,81 @@ export function AvatarCustomizer({
       return;
     }
     const t = setTimeout(() => {
-      attach(pantsAccScene, pantsAccRef, 'legs', undefined, () => {
-        groupRef.current?.traverse((n) => { if (n.name === 'Pants') n.visible = false; });
+      // Check if Sketchfab static mesh (P3-P7)
+      const isSketchfab = pantsAccScene.getObjectByName('Sketchfab_model') !== undefined;
+
+      if (!isSketchfab) {
+        // Original RPM pants - works with attach
+        attach(pantsAccScene, pantsAccRef, 'legs', undefined, () => {
+          groupRef.current?.traverse((n) => { if (n.name === 'Pants') n.visible = false; });
+        });
+        return;
+      }
+
+      // Sketchfab static pants - manual positioning
+      if (!groupRef.current) return;
+      let armature: THREE.Object3D | undefined;
+      groupRef.current.traverse((n) => { if (n.name === 'Armature') armature = n; });
+      if (!armature) return;
+
+      // Per-pants config [yOffset, scaleMultiplier, zOffset]
+      const fileName = pantsPath.split('/').pop() ?? '';
+      const pantsConfigs: Record<string, { yOffset?: number; scaleMultiplier?: number; zOffset?: number }> = {
+        'P3.glb': { yOffset: -0.45, scaleMultiplier: 1.3 },
+        'P4.glb': {},
+        'P5.glb': {},
+        'P6.glb': { yOffset: -0.3 },
+        'P7.glb': {},
+      };
+      const cfg = pantsConfigs[fileName] ?? {};
+
+      // Reference: FB1 legs anchor position
+      const REF_LEGS_Y = -0.5;
+      let legsY = REF_LEGS_Y;
+      groupRef.current.traverse((n) => {
+        if (n.name === 'LeftUpLeg' || n.name === 'Hips') {
+          const wp = new THREE.Vector3();
+          n.getWorldPosition(wp);
+          const lp = armature!.worldToLocal(wp.clone());
+          legsY = lp.y;
+        }
       });
+
+      const clone = pantsAccScene.clone();
+      const box = new THREE.Box3().setFromObject(clone);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      // Use a smaller reference to make pants fit properly
+      const scale = size.x > 0 ? (0.35 / size.x) * (cfg.scaleMultiplier ?? 1.0) : 1;
+      clone.scale.set(scale, scale, scale);
+
+      const boxS = new THREE.Box3().setFromObject(clone);
+      const centerS = new THREE.Vector3();
+      boxS.getCenter(centerS);
+      clone.position.set(0, legsY - centerS.y + (cfg.yOffset ?? 0), cfg.zOffset ?? 0);
+
+      clone.traverse((n: THREE.Object3D) => {
+        n.visible = true;
+        if (n instanceof THREE.Mesh && n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach((m: any) => {
+            m.transparent = false; m.opacity = 1; m.alphaTest = 0;
+            m.depthWrite = true; m.side = THREE.DoubleSide; m.needsUpdate = true;
+          });
+          n.frustumCulled = false;
+        }
+      });
+
+      // Only hide avatar Pants mesh, keep Body (legs) visible
+      groupRef.current.traverse((n) => {
+        if (n.name === 'Pants') n.visible = false;
+        // Keep Body, Legs visible
+      });
+
+      disposeObject(pantsAccRef.current);
+      armature.add(clone);
+      pantsAccRef.current = clone;
     }, 100);
     return () => { clearTimeout(t); disposeObject(pantsAccRef.current); };
   }, [pantsAccScene, pantsPath, accessories.pants, bodyType, scene]);
@@ -253,10 +457,10 @@ export function AvatarCustomizer({
             3: [0, -0.09, -0.15],
             4: [0, -0.12, 0.05],
             5: [0, 0.28, 0.02],
-            6: [0, -0.06, 0.07],
+            6: [0, -0.22, 0.07],
           };
           const hairScaleMultiplier: Record<number, number> = {
-            2: 1.0, 3: 1.3, 4: 1.2, 5: 0.5, 6: 1.0,
+            2: 1.0, 3: 1.3, 4: 1.2, 5: 0.5, 6: 1.3,
           };
           const hairRotation: Record<number, [number, number, number]> = {
             2: [0, 0, 0], 3: [0.3, 0, 0], 4: [0, 0, 0], 5: [0, 0, 0], 6: [0, 0, 0],
@@ -345,31 +549,62 @@ export function AvatarCustomizer({
   // ── FULL SUIT ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!fullSuitPath || !fullSuitScene) {
-      detach(fullSuitRef, () => {
-        groupRef.current?.traverse((n) => {
-          if (['Top', 'Pants', 'Hair'].includes(n.name)) n.visible = true;
-        });
-      });
+      if (fullSuitRef.current) {
+        fullSuitRef.current.parent?.remove(fullSuitRef.current);
+        disposeObject(fullSuitRef.current);
+        fullSuitRef.current = null;
+      }
+      // Restore all avatar parts
+      groupRef.current?.traverse((n) => { n.visible = true; });
       return;
     }
+
     const t = setTimeout(() => {
-      let avatarSkeleton: THREE.Skeleton | undefined;
-      groupRef.current?.traverse((n) => {
-        if (n instanceof THREE.SkinnedMesh && n.skeleton) avatarSkeleton = n.skeleton;
+      if (!groupRef.current) return;
+
+      // Hide custom avatar body parts
+      groupRef.current.traverse((n) => {
+        if (['Top', 'Pants', 'Shoes', 'Body'].includes(n.name)) n.visible = false;
+        if (n.name === 'Hair' && accessories.fullSuit === 2) n.visible = false;
       });
-      attach(fullSuitScene, fullSuitRef, 'body', undefined, (clone) => {
-        groupRef.current?.traverse((n) => {
-          if (['Top', 'Pants'].includes(n.name)) n.visible = false;
-          // Hide hair for ninja suit (suit 2)
-          if (n.name === 'Hair' && accessories.fullSuit === 2) n.visible = false;
-        });
-        if (avatarSkeleton) {
-          clone.traverse((n) => {
-            if (n instanceof THREE.SkinnedMesh) n.bind(avatarSkeleton!);
+
+      const clone = fullSuitScene.clone();
+      clone.position.set(0, 0, 0);
+      clone.scale.set(1, 1, 1);
+      clone.rotation.set(0, 0, 0);
+
+      // Force all meshes visible with proper materials
+      clone.traverse((n: THREE.Object3D) => {
+        n.visible = true;
+        if ((n instanceof THREE.Mesh || n instanceof THREE.SkinnedMesh) && n.material) {
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach((m: any) => {
+            m.transparent = false;
+            m.opacity = 1;
+            m.alphaTest = 0;
+            m.depthWrite = true;
+            m.depthTest = true;
+            m.side = THREE.DoubleSide;
+            m.visible = true;
+            m.needsUpdate = true;
           });
+          n.frustumCulled = false;
+          n.renderOrder = 0;
         }
       });
+
+      // Remove old suit
+      if (fullSuitRef.current) {
+        fullSuitRef.current.parent?.remove(fullSuitRef.current);
+        disposeObject(fullSuitRef.current);
+      }
+
+      // Add directly to groupRef (same level as avatar mesh)
+      groupRef.current.add(clone);
+      fullSuitRef.current = clone;
+      console.log('👗 Suit added to groupRef, nodes:', clone.children.length);
     }, 100);
+
     return () => { clearTimeout(t); disposeObject(fullSuitRef.current); };
   }, [fullSuitScene, fullSuitPath, accessories.fullSuit, bodyType, scene]);
 

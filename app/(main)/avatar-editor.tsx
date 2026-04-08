@@ -26,7 +26,7 @@ const D = {
 const getAvatarViewerUrl = () => {
   if (!__DEV__) return 'https://your-actual-vercel-url.vercel.app';
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return host ? `http://${host}:5174` : 'http://192.168.100.97:5174';
+  return host ? `http://${host}:5173` : 'http://192.168.100.97:5173';
 };
 
 // ─── TYPES & DATA (unchanged from original) ───────────────────────────────────
@@ -556,6 +556,11 @@ export default function AvatarEditorScreen() {
                     {selectedGender === 'female' && (
                       <ItemBtn label="3" active={accessories.jacket === 3}   onPress={() => selectJacket(3)} />
                     )}
+                    <ItemBtn label={selectedGender === 'female' ? '4' : '3'} active={accessories.jacket === (selectedGender === 'female' ? 4 : 3)} onPress={() => selectJacket(selectedGender === 'female' ? 4 : 3)} />
+                    <ItemBtn label={selectedGender === 'female' ? '5' : '4'} active={accessories.jacket === (selectedGender === 'female' ? 5 : 4)} onPress={() => selectJacket(selectedGender === 'female' ? 5 : 4)} />
+                    <ItemBtn label={selectedGender === 'female' ? '6' : '5'} active={accessories.jacket === (selectedGender === 'female' ? 6 : 5)} onPress={() => selectJacket(selectedGender === 'female' ? 6 : 5)} />
+                    <ItemBtn label={selectedGender === 'female' ? '7' : '6'} active={accessories.jacket === (selectedGender === 'female' ? 7 : 6)} onPress={() => selectJacket(selectedGender === 'female' ? 7 : 6)} />
+                    <ItemBtn label={selectedGender === 'female' ? '8' : '7'} active={accessories.jacket === (selectedGender === 'female' ? 8 : 7)} onPress={() => selectJacket(selectedGender === 'female' ? 8 : 7)} />
                   </>
                 )}
                 {/* Pants */}
@@ -564,6 +569,11 @@ export default function AvatarEditorScreen() {
                     <ItemBtn label="OFF" active={accessories.pants === null} onPress={() => selectPants(null)} />
                     <ItemBtn label="1"   active={accessories.pants === 1}    onPress={() => selectPants(1)} />
                     <ItemBtn label="2"   active={accessories.pants === 2}    onPress={() => selectPants(2)} />
+                    <ItemBtn label="3"   active={accessories.pants === 3}    onPress={() => selectPants(3)} />
+                    <ItemBtn label="4"   active={accessories.pants === 4}    onPress={() => selectPants(4)} />
+                    <ItemBtn label="5"   active={accessories.pants === 5}    onPress={() => selectPants(5)} />
+                    <ItemBtn label="6"   active={accessories.pants === 6}    onPress={() => selectPants(6)} />
+                    <ItemBtn label="7"   active={accessories.pants === 7}    onPress={() => selectPants(7)} />
                   </>
                 )}
                 {/* Hair */}
@@ -591,16 +601,20 @@ export default function AvatarEditorScreen() {
                   <>
                     <ItemBtn label="OFF" active={accessories.fullSuit === null} onPress={() => selectFullSuit(null)} />
                     {selectedGender === 'female' && (
-                      <ItemBtn label="1" active={accessories.fullSuit === 1} onPress={() => selectFullSuit(1)} />
+                      <>
+                        <ItemBtn label="1" active={accessories.fullSuit === 1} onPress={() => selectFullSuit(1)} />
+                        <ItemBtn label="2" active={accessories.fullSuit === 2} onPress={() => selectFullSuit(2)} />
+                        <ItemBtn label="3" active={accessories.fullSuit === 3} onPress={() => selectFullSuit(3)} />
+                        <ItemBtn label="4" active={accessories.fullSuit === 4} onPress={() => selectFullSuit(4)} />
+                        <ItemBtn label="5" active={accessories.fullSuit === 5} onPress={() => selectFullSuit(5)} />
+                        <ItemBtn label="6" active={accessories.fullSuit === 6} onPress={() => selectFullSuit(6)} />
+                        <ItemBtn label="7" active={accessories.fullSuit === 7} onPress={() => selectFullSuit(7)} />
+                        <ItemBtn label="8" active={accessories.fullSuit === 8} onPress={() => selectFullSuit(8)} />
+                      </>
                     )}
-                    {selectedGender === 'female' && (
-                      <ItemBtn label="2" active={accessories.fullSuit === 2} onPress={() => selectFullSuit(2)} />
+                    {selectedGender === 'male' && (
+                      <ItemBtn label="1" active={accessories.fullSuit === 3} onPress={() => selectFullSuit(3)} />
                     )}
-                    <ItemBtn
-                      label={selectedGender === 'female' ? '3' : '1'}
-                      active={accessories.fullSuit === 3}
-                      onPress={() => selectFullSuit(3)}
-                    />
                   </>
                 )}
                 {/* Shoes */}
