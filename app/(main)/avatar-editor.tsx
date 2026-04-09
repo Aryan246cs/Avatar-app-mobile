@@ -27,7 +27,7 @@ const D = {
 const getAvatarViewerUrl = () => {
   if (!__DEV__) return 'https://your-actual-vercel-url.vercel.app';
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return host ? `http://${host}:5173` : 'http://192.168.100.97:5173';
+  return host ? `http://${host}:5174` : 'http://192.168.100.97:5174';
 };
 
 // ─── TYPES & DATA (unchanged from original) ───────────────────────────────────
@@ -455,6 +455,12 @@ export default function AvatarEditorScreen() {
   // Main tab: Body | Colors | Store
   const [mainTab, setMainTab] = useState<'body' | 'colors' | 'store'>('body');
 
+  // Skin color
+  const [skinColor, setSkinColorState] = useState<string | null>(null);
+
+  // Camera mode
+  const [cameraMode, setCameraModeState] = useState<'full' | 'upper' | 'face'>('full');
+
   // Color picker — shared for Colors tab and Store tab
   const [pickerVisible,      setPickerVisible]      = useState(false);
   const [pickerInitialColor, setPickerInitialColor] = useState('#4169e1');
@@ -469,6 +475,16 @@ export default function AvatarEditorScreen() {
 
   const sendSelection = (type: string, selection: number | null) =>
     webViewRef.current?.postMessage(JSON.stringify({ type, selection }));
+
+  const handleSkinColor = (hex: string) => {
+    setSkinColorState(hex);
+    send('SET_SKIN_COLOR', hex);
+  };
+
+  const handleCameraMode = (mode: 'full' | 'upper' | 'face') => {
+    setCameraModeState(mode);
+    send('SET_CAMERA_MODE', mode);
+  };
 
   const handleBodySelect = (bodyType: BodyType) => {
     setSelectedBody(bodyType);
@@ -562,7 +578,8 @@ export default function AvatarEditorScreen() {
                 <Text style={{ color: D.muted }}>Loading avatar…</Text>
               </View>
             )}
-            onError={() => {}}
+            onError={(e) => { console.log('WebView error:', e.nativeEvent); }}
+            onHttpError={(e) => { console.log('WebView HTTP error:', e.nativeEvent.statusCode); }}
           />
         ) : (
           <View style={s.loaderBox}>
@@ -637,6 +654,27 @@ export default function AvatarEditorScreen() {
                   />
                 ))}
               </View>
+
+              {/* Camera Mode */}
+              <Text style={s.sectionLabel}>View</Text>
+              <View style={s.genderRow}>
+                {([
+                  { id: 'full' as const, label: '🧍 Full' },
+                  { id: 'upper' as const, label: '👕 Upper' },
+                  { id: 'face' as const, label: '😊 Face' },
+                ]).map(m => (
+                  <TouchableOpacity
+                    key={m.id}
+                    onPress={() => handleCameraMode(m.id)}
+                    style={[s.genderBtn, cameraMode === m.id && s.genderBtnActive]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.genderBtnText, cameraMode === m.id && s.genderBtnTextActive]}>
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 
@@ -686,6 +724,29 @@ export default function AvatarEditorScreen() {
                   </TouchableOpacity>
                   <Text style={s.swatchLabel}>Custom</Text>
                 </View>
+              </View>
+
+              {/* Skin Color */}
+              <Text style={s.sectionLabel}>Skin Tone</Text>
+              <View style={s.swatchGrid}>
+                {[
+                  { label: 'Light',   color: '#FDDBB4' },
+                  { label: 'Fair',    color: '#F1C27D' },
+                  { label: 'Medium',  color: '#E0AC69' },
+                  { label: 'Tan',     color: '#C68642' },
+                  { label: 'Brown',   color: '#8D5524' },
+                  { label: 'Dark',    color: '#4A2912' },
+                  { label: 'Default', color: '#888888' },
+                ].map(sk => (
+                  <View key={sk.label} style={s.swatchItem}>
+                    <ColorSwatch
+                      color={sk.color}
+                      selected={skinColor === (sk.label === 'Default' ? null : sk.color)}
+                      onPress={() => handleSkinColor(sk.label === 'Default' ? 'default' : sk.color)}
+                    />
+                    <Text style={s.swatchLabel}>{sk.label}</Text>
+                  </View>
+                ))}
               </View>
 
             </View>

@@ -43,6 +43,7 @@ export interface AvatarCustomizerProps {
   visibleParts?: { hair?: boolean; top?: boolean; pants?: boolean; shoes?: boolean };
   accessories?: { jacket?: number|null; pants?: number|null; hair?: number|null; mask?: number|null; fullSuit?: number|null; shoes?: number|null };
   accessoryColors?: { jacket?: string|null; pants?: string|null; hair?: string|null; mask?: string|null; fullSuit?: string|null; shoes?: string|null };
+  skinColor?: string | null;
 }
 
 // ─── HELPER ───────────────────────────────────────────────────────────────────
@@ -86,6 +87,146 @@ function AccessoryLoader({ path, bodyRef, accRef, anchorType, bodyType, color, o
   return null;
 }
 
+// ─── SKETCHFAB PANTS LOADER (for P3-P7 static meshes) ───────────────────────
+const PANTS_CONFIGS: Record<string, { scaleMultiplier?: number; yOffset?: number; zOffset?: number }> = {
+  'P3.glb': { scaleMultiplier: 1.2, yOffset: -0.45 },
+  'P4.glb': { scaleMultiplier: 1.2, yOffset: -0.4},
+  'P5.glb': {},
+  'P6.glb': { scaleMultiplier: 1.4, yOffset: -0.3 },
+  'P7.glb': {yOffset: -0.45},
+};
+
+function SketchfabPantsLoader({ path, bodyRef, accRef, bodyType, color }: {
+  path: string;
+  bodyRef: React.MutableRefObject<THREE.Group | null>;
+  accRef: React.MutableRefObject<THREE.Group | null>;
+  bodyType: BodyType; color?: string|null;
+}) {
+  const { scene } = useGLTF(path) as any;
+  useEffect(() => {
+    if (!scene || !bodyRef.current) return;
+    let arm: THREE.Object3D | undefined;
+    bodyRef.current.traverse((n) => { if (n.name === 'Armature') arm = n; });
+    if (!arm) return;
+
+    const fileName = path.split('/').pop() ?? '';
+    const cfg = PANTS_CONFIGS[fileName] ?? {};
+    const clone = scene.clone();
+
+    // Scale based on FB1 reference width (0.56)
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const scale = size.x > 0 ? (0.35 / size.x) * (cfg.scaleMultiplier ?? 1.0) : 1;
+    clone.scale.set(scale, scale, scale);
+
+    // Position at legs
+    let legsY = -0.5;
+    bodyRef.current.traverse((n) => {
+      if (n.name === 'LeftUpLeg' || n.name === 'Hips') {
+        const wp = new THREE.Vector3(); n.getWorldPosition(wp);
+        const lp = arm!.worldToLocal(wp.clone());
+        legsY = lp.y;
+      }
+    });
+    const boxS = new THREE.Box3().setFromObject(clone);
+    const centerS = new THREE.Vector3(); boxS.getCenter(centerS);
+    clone.position.set(0, legsY - centerS.y + (cfg.yOffset ?? 0), cfg.zOffset ?? 0);
+
+    clone.traverse((n: THREE.Object3D) => {
+      n.visible = true;
+      if (n instanceof THREE.Mesh && n.material) {
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        mats.forEach((m: any) => { m.transparent=false; m.opacity=1; m.alphaTest=0; m.depthWrite=true; m.side=THREE.DoubleSide; m.needsUpdate=true; });
+        n.frustumCulled = false;
+      }
+    });
+
+    bodyRef.current.traverse((n) => { if (n.name === 'Pants') n.visible = false; });
+    tintObject(clone, color);
+    disposeObject(accRef.current);
+    arm.add(clone);
+    accRef.current = clone;
+
+    return () => {
+      disposeObject(accRef.current); accRef.current = null;
+      bodyRef.current?.traverse((n) => { if (n.name === 'Pants') n.visible = true; });
+    };
+  }, [scene, path, bodyType, color]);
+  return null;
+}
+
+// ─── SKETCHFAB JACKET LOADER (for J4-J8 static meshes) ──────────────────────
+const JACKET_CONFIGS: Record<string, { sizeX: number; centerY: number; scaleMultiplier?: number; zOffset?: number; yOffset?: number; hideHands?: boolean }> = {
+  'J4.glb': { sizeX: 5.556, centerY: 5.657, scaleMultiplier: 1.1, zOffset: 0.08, yOffset: -0.1, hideHands: true },
+  'J5.glb': { sizeX: 5.340, centerY: 5.742, scaleMultiplier: 1.056, zOffset: 0.08, yOffset: -0.1, hideHands: true },
+  'J6.glb': { sizeX: 3.847, centerY: -0.168, yOffset: -0.5, hideHands: true },
+  'J7.glb': { sizeX: 1.280, centerY: 0.008, yOffset: -1.0, scaleMultiplier: 0.8 },
+  'J8.glb': { sizeX: 700.984, centerY: 1268.198, scaleMultiplier: 100.0, yOffset: 170 },
+};
+const REF_SIZE_X = 0.957;
+const REF_CENTER_Y = 1.262;
+
+function SketchfabJacketLoader({ path, bodyRef, accRef, bodyType, color }: {
+  path: string;
+  bodyRef: React.MutableRefObject<THREE.Group | null>;
+  accRef: React.MutableRefObject<THREE.Group | null>;
+  bodyType: BodyType; color?: string|null;
+}) {
+  const { scene } = useGLTF(path) as any;
+  useEffect(() => {
+    if (!scene || !bodyRef.current) return;
+    let arm: THREE.Object3D | undefined;
+    bodyRef.current.traverse((n) => { if (n.name === 'Armature') arm = n; });
+    if (!arm) return;
+
+    const fileName = path.split('/').pop() ?? '';
+    const cfg = JACKET_CONFIGS[fileName];
+    const clone = scene.clone();
+
+    if (cfg) {
+      const scale = (REF_SIZE_X / cfg.sizeX) * (cfg.scaleMultiplier ?? 1.0);
+      clone.scale.set(scale, scale, scale);
+      let spine2WorldY = REF_CENTER_Y;
+      bodyRef.current.traverse((n) => {
+        if (n.name === 'Spine2' || n.name === 'Spine1') {
+          const wp = new THREE.Vector3(); n.getWorldPosition(wp);
+          const lp = arm!.worldToLocal(wp.clone());
+          spine2WorldY = lp.y;
+        }
+      });
+      clone.position.set(0, spine2WorldY - cfg.centerY * scale + (cfg.yOffset ?? 0), cfg.zOffset ?? 0);
+    }
+
+    clone.traverse((n: THREE.Object3D) => {
+      n.visible = true;
+      if (n instanceof THREE.Mesh && n.material) {
+        const mats = Array.isArray(n.material) ? n.material : [n.material];
+        mats.forEach((m: any) => { m.transparent=false; m.opacity=1; m.alphaTest=0; m.depthWrite=true; m.side=THREE.DoubleSide; m.needsUpdate=true; });
+        n.frustumCulled = false;
+      }
+    });
+
+    // Hide Top shirt + body (arms/hands) if configured
+    bodyRef.current.traverse((n) => {
+      if (n.name === 'Top') n.visible = false;
+      if (cfg?.hideHands && n.name === 'Body') n.visible = false;
+    });
+
+    tintObject(clone, color);
+    disposeObject(accRef.current);
+    arm.add(clone);
+    accRef.current = clone;
+
+    return () => {
+      disposeObject(accRef.current); accRef.current = null;
+      bodyRef.current?.traverse((n) => {
+        if (n.name === 'Top' || n.name === 'Body') n.visible = true;
+      });
+    };
+  }, [scene, path, bodyType, color]);
+  return null;
+}
+
 // ─── HAIR LOADER ──────────────────────────────────────────────────────────────
 function HairLoader({ path, idx, bodyRef, accRef, bodyType, color }: {
   path: string; idx: number;
@@ -118,7 +259,7 @@ function HairLoader({ path, idx, bodyRef, accRef, bodyType, color }: {
         const r=rot[idx]??[0,0,0]; clone.rotation.set(r[0],r[1],r[2]);
       }
     }
-    clone.traverse((n) => {
+    clone.traverse((n: THREE.Object3D) => {
       n.visible=true;
       if (n instanceof THREE.Mesh && n.material) {
         const mats=Array.isArray(n.material)?n.material:[n.material];
@@ -171,6 +312,7 @@ export function AvatarCustomizer({
   visibleParts    = { hair:true, top:true, pants:true, shoes:true },
   accessories     = { jacket:null, pants:null, hair:null, mask:null, fullSuit:null, shoes:null },
   accessoryColors = { jacket:null, pants:null, hair:null, mask:null, fullSuit:null, shoes:null },
+  skinColor,
 }: AvatarCustomizerProps) {
   const bodyRef     = useRef<THREE.Group>(null);
   const jacketRef   = useRef<THREE.Group|null>(null);
@@ -206,10 +348,16 @@ export function AvatarCustomizer({
         mat.map=eyesTex; mat.transparent=false; mat.depthWrite=true; mat.needsUpdate=true;
         node.visible=true; node.frustumCulled=false; node.renderOrder=1;
       }
+      // Apply skin color to all skin meshes (everything except clothes, hair, eyes, teeth)
+      const clothingMeshes = ['Top','Pants','Shoes','Hair','Eyes','Teeth'];
+      if (skinColor && !clothingMeshes.includes(n) && !n.includes('Outfit') && !n.includes('Footwear')) {
+        mat.color.set(new THREE.Color(skinColor));
+        mat.needsUpdate=true;
+      }
     });
     bodyRef.current.clear();
     bodyRef.current.add(cloned);
-  }, [scene, topTex, pantsTex, shoesTex, eyesTex, hairTex, visibleParts, bodyType]);
+  }, [scene, topTex, pantsTex, shoesTex, eyesTex, hairTex, visibleParts, bodyType, skinColor]);
 
   // ── Resolve accessory paths (null = not selected = don't mount loader) ─────
   const jacketPath = accessories.jacket   ? (ACCESSORY_FILES.jacket[gender]   as any)[accessories.jacket]   ?? null : null;
@@ -224,18 +372,28 @@ export function AvatarCustomizer({
 
       {jacketPath && (
         <Suspense fallback={null}>
-          <AccessoryLoader path={jacketPath} bodyRef={bodyRef} accRef={jacketRef}
-            anchorType="body" bodyType={bodyType} color={accessoryColors.jacket} />
+          {Object.keys(JACKET_CONFIGS).some(k => jacketPath.endsWith(k)) ? (
+            <SketchfabJacketLoader path={jacketPath} bodyRef={bodyRef} accRef={jacketRef}
+              bodyType={bodyType} color={accessoryColors.jacket} />
+          ) : (
+            <AccessoryLoader path={jacketPath} bodyRef={bodyRef} accRef={jacketRef}
+              anchorType="body" bodyType={bodyType} color={accessoryColors.jacket} />
+          )}
         </Suspense>
       )}
 
       {pantsPath && (
         <Suspense fallback={null}>
-          <AccessoryLoader path={pantsPath} bodyRef={bodyRef} accRef={pantsAccRef}
-            anchorType="legs" bodyType={bodyType} color={accessoryColors.pants}
-            onAttach={()=>{ bodyRef.current?.traverse((n)=>{ if(n.name==='Pants') n.visible=false; }); }}
-            onDetach={()=>{ bodyRef.current?.traverse((n)=>{ if(n.name==='Pants') n.visible=true; }); }}
-          />
+          {Object.keys(PANTS_CONFIGS).some(k => pantsPath.endsWith(k)) ? (
+            <SketchfabPantsLoader path={pantsPath} bodyRef={bodyRef} accRef={pantsAccRef}
+              bodyType={bodyType} color={accessoryColors.pants} />
+          ) : (
+            <AccessoryLoader path={pantsPath} bodyRef={bodyRef} accRef={pantsAccRef}
+              anchorType="legs" bodyType={bodyType} color={accessoryColors.pants}
+              onAttach={()=>{ bodyRef.current?.traverse((n)=>{ if(n.name==='Pants') n.visible=false; }); }}
+              onDetach={()=>{ bodyRef.current?.traverse((n)=>{ if(n.name==='Pants') n.visible=true; }); }}
+            />
+          )}
         </Suspense>
       )}
 

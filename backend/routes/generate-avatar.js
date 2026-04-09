@@ -90,7 +90,7 @@ router.post('/', async (req, res) => {
 
   try {
     const hfRes = await fetch(
-      'https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0',
+      'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
       {
         method: 'POST',
         headers: {
@@ -98,15 +98,23 @@ router.post('/', async (req, res) => {
           'Content-Type': 'application/json',
           Accept: 'image/png',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          inputs: positive,
+          parameters: {
+            negative_prompt: negative,
+            guidance_scale,
+            num_inference_steps,
+            width: 512,
+            height: 512,
+            ...(seed ? { seed: parseInt(seed, 10) } : {}),
+          },
+        }),
       }
     );
 
     if (!hfRes.ok) {
       const errText = await hfRes.text();
       console.error('HF error:', hfRes.status, errText);
-
-      // Model loading — tell client to retry
       if (hfRes.status === 503) {
         return res.status(503).json({ success: false, message: 'Model is loading, please retry in ~20 seconds.' });
       }
@@ -115,7 +123,6 @@ router.post('/', async (req, res) => {
 
     const arrayBuffer = await hfRes.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString('base64');
-
     return res.json({ success: true, image: base64, prompt: positive });
 
   } catch (err) {
