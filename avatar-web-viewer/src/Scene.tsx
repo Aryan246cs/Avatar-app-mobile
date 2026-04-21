@@ -5,9 +5,9 @@ import { AvatarCustomizer, type BodyType } from './AvatarCustomizer';
 
 // Camera presets for different crop modes
 const CAMERA_PRESETS = {
-  full:  { position: [0, 1.0, 4.5] as [number,number,number], target: [0, 1.0, 0] as [number,number,number], fov: 30 },
-  upper: { position: [0, 1.4, 2.8] as [number,number,number], target: [0, 1.4, 0] as [number,number,number], fov: 28 },
-  face:  { position: [0, 1.7, 1.5] as [number,number,number], target: [0, 1.7, 0] as [number,number,number], fov: 22 },
+  full:  { position: [0, 0.8, 4.5] as [number,number,number], target: [0, 0.8, 0] as [number,number,number], fov: 30 },
+  upper: { position: [0, 1.3, 2.5] as [number,number,number], target: [0, 1.3, 0] as [number,number,number], fov: 25 },
+  face:  { position: [0, 1.65, 1.2] as [number,number,number], target: [0, 1.65, 0] as [number,number,number], fov: 18 },
 };
 
 interface SceneProps {
@@ -58,10 +58,23 @@ export function Scene({
             shoesTexture={shoesTexture}
             eyesTexture={eyesTexture}
             hairTexture={hairTexture}
-            visibleParts={visibleParts}
-            accessories={accessories}
+            visibleParts={{
+              ...visibleParts,
+              pants: cameraMode === 'full' ? visibleParts?.pants : false,
+              shoes: cameraMode === 'full' ? visibleParts?.shoes : false,
+              top: cameraMode === 'face' ? false : visibleParts?.top,
+              hair: visibleParts?.hair,
+            }}
+            accessories={{
+              ...accessories,
+              pants: cameraMode === 'full' ? accessories?.pants : null,
+              shoes: cameraMode === 'full' ? accessories?.shoes : null,
+              jacket: cameraMode === 'face' ? null : accessories?.jacket,
+              fullSuit: cameraMode === 'face' ? null : accessories?.fullSuit,
+            }}
             accessoryColors={accessoryColors}
             skinColor={skinColor}
+            cameraMode={cameraMode}
           />
         </Suspense>
 

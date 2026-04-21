@@ -44,6 +44,7 @@ export interface AvatarCustomizerProps {
   accessories?: { jacket?: number|null; pants?: number|null; hair?: number|null; mask?: number|null; fullSuit?: number|null; shoes?: number|null };
   accessoryColors?: { jacket?: string|null; pants?: string|null; hair?: string|null; mask?: string|null; fullSuit?: string|null; shoes?: string|null };
   skinColor?: string | null;
+  cameraMode?: 'full' | 'upper' | 'face';
 }
 
 // ─── HELPER ───────────────────────────────────────────────────────────────────
@@ -313,6 +314,7 @@ export function AvatarCustomizer({
   accessories     = { jacket:null, pants:null, hair:null, mask:null, fullSuit:null, shoes:null },
   accessoryColors = { jacket:null, pants:null, hair:null, mask:null, fullSuit:null, shoes:null },
   skinColor,
+  cameraMode = 'full',
 }: AvatarCustomizerProps) {
   const bodyRef     = useRef<THREE.Group>(null);
   const jacketRef   = useRef<THREE.Group|null>(null);
@@ -354,10 +356,14 @@ export function AvatarCustomizer({
         mat.color.set(new THREE.Color(skinColor));
         mat.needsUpdate=true;
       }
+      // Hide Body (hands/arms/torso skin) for face mode
+      if (n === 'Body' && cameraMode === 'face') {
+        node.visible = false;
+      }
     });
     bodyRef.current.clear();
     bodyRef.current.add(cloned);
-  }, [scene, topTex, pantsTex, shoesTex, eyesTex, hairTex, visibleParts, bodyType, skinColor]);
+  }, [scene, topTex, pantsTex, shoesTex, eyesTex, hairTex, visibleParts, bodyType, skinColor, cameraMode]);
 
   // ── Resolve accessory paths (null = not selected = don't mount loader) ─────
   const jacketPath = accessories.jacket   ? (ACCESSORY_FILES.jacket[gender]   as any)[accessories.jacket]   ?? null : null;
