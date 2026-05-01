@@ -1,7 +1,6 @@
 import Constants from 'expo-constants';
-import * as FS from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,38 +11,35 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Circle, Line, Path, Rect, Svg } from 'react-native-svg';
+import { saveAvatarToGallery } from './export-avatar';
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const { width: SW } = Dimensions.get('window');
+const { width: SW, height: SH } = Dimensions.get('window');
 
 const getApiUrl = () => {
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
   return host ? `http://${host}:5000/api` : 'http://192.168.100.97:5000/api';
 };
 
-// Design tokens
-const C = {
-  bg:       '#080810',
-  surface:  '#0f0f1a',
-  card:     '#13131f',
-  border:   '#1e1e35',
-  accent:   '#7c3aed',
-  accentLo: '#4c1d95',
-  neon:     '#a78bfa',
-  neonGlow: '#7c3aed88',
-  cyan:     '#22d3ee',
-  pink:     '#ec4899',
-  text:     '#f1f5f9',
-  muted:    '#64748b',
-  sub:      '#94a3b8',
+// ─── Theme — matches home page ────────────────────────────────────────────────
+const D = {
+  bg:      '#060608',
+  panel:   '#0d0d18',
+  card:    '#13131f',
+  border:  '#1e1e2e',
+  accent:  '#a78bfa',
+  muted:   '#6b7280',
+  text:    '#f1f5f9',
+  subtext: '#94a3b8',
 };
 
-// ─── TYPES ────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 type Style2D = 'anime' | 'cartoon' | 'nft' | 'cyberpunk' | 'fantasy';
 type Mood    = 'dramatic' | 'cinematic' | 'soft' | 'neon';
 type BgType  = 'plain' | 'abstract' | 'futuristic_city' | 'galaxy';
+type TabId   = 'style' | 'traits' | 'mood' | 'background';
 
 interface GenerateParams {
   style: Style2D;
@@ -52,17 +48,111 @@ interface GenerateParams {
   mood: Mood;
   background: BgType;
   seed: string;
-  creativity: number; // 0–100 → guidance_scale 7–12
-  detail: number;     // 0–100 → steps 20–50
 }
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-const STYLES: { id: Style2D; label: string; emoji: string; color: string }[] = [
-  { id: 'anime',    label: 'Anime',    emoji: '🌸', color: '#ec4899' },
-  { id: 'cartoon',  label: 'Cartoon',  emoji: '🎨', color: '#f59e0b' },
-  { id: 'nft',      label: 'NFT',      emoji: '💎', color: '#22d3ee' },
-  { id: 'cyberpunk',label: 'Cyberpunk',emoji: '⚡', color: '#7c3aed' },
-  { id: 'fantasy',  label: 'Fantasy',  emoji: '🔮', color: '#10b981' },
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+function SparkleIcon({ color, size = 18 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"
+        stroke={color} strokeWidth={1.8} strokeLinejoin="round"/>
+    </Svg>
+  );
+}
+function DiceIcon({ color, size = 18 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={3} y={3} width={18} height={18} rx={3} stroke={color} strokeWidth={1.8}/>
+      <Circle cx={8.5} cy={8.5} r={1.2} fill={color}/>
+      <Circle cx={15.5} cy={8.5} r={1.2} fill={color}/>
+      <Circle cx={8.5} cy={15.5} r={1.2} fill={color}/>
+      <Circle cx={15.5} cy={15.5} r={1.2} fill={color}/>
+      <Circle cx={12} cy={12} r={1.2} fill={color}/>
+    </Svg>
+  );
+}
+function SaveIcon({ color, size = 18 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7" stroke={color} strokeWidth={2} strokeLinecap="round"/>
+      <Path d="M12 3v12M8 7l4-4 4 4" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  );
+}
+function RefineIcon({ color, size = 18 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke={color} strokeWidth={1.8} strokeLinecap="round"/>
+      <Path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke={color} strokeWidth={1.8} strokeLinejoin="round"/>
+    </Svg>
+  );
+}
+function PlusIcon({ color, size = 16 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1={12} y1={5} x2={12} y2={19} stroke={color} strokeWidth={2.5} strokeLinecap="round"/>
+      <Line x1={5} y1={12} x2={19} y2={12} stroke={color} strokeWidth={2.5} strokeLinecap="round"/>
+    </Svg>
+  );
+}
+function CloseIcon({ color, size = 12 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1={18} y1={6} x2={6} y2={18} stroke={color} strokeWidth={2.5} strokeLinecap="round"/>
+      <Line x1={6} y1={6} x2={18} y2={18} stroke={color} strokeWidth={2.5} strokeLinecap="round"/>
+    </Svg>
+  );
+}
+function AnimeIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={10} r={5} stroke={color} strokeWidth={1.8}/>
+      <Path d="M5 19c0-3.3 3.1-6 7-6s7 2.7 7 6" stroke={color} strokeWidth={1.8} strokeLinecap="round"/>
+      <Path d="M9 9.5c.3-.3.7-.5 1-.5M14 9.5c-.3-.3-.7-.5-1-.5" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+    </Svg>
+  );
+}
+function CartoonIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.8}/>
+      <Circle cx={9} cy={10} r={1.5} fill={color}/>
+      <Circle cx={15} cy={10} r={1.5} fill={color}/>
+      <Path d="M8 15s1.5 2 4 2 4-2 4-2" stroke={color} strokeWidth={1.8} strokeLinecap="round"/>
+    </Svg>
+  );
+}
+function NftIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2l9 5v10l-9 5-9-5V7l9-5z" stroke={color} strokeWidth={1.8} strokeLinejoin="round"/>
+      <Path d="M12 2v20M3 7l9 5 9-5" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+    </Svg>
+  );
+}
+function CyberpunkIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke={color} strokeWidth={1.8} strokeLinejoin="round"/>
+    </Svg>
+  );
+}
+function FantasyIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"
+        stroke={color} strokeWidth={1.8} strokeLinejoin="round"/>
+    </Svg>
+  );
+}
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+const STYLES: { id: Style2D; label: string; icon: (c: string) => React.ReactElement }[] = [
+  { id: 'anime',     label: 'Anime',     icon: c => <AnimeIcon color={c} /> },
+  { id: 'cartoon',   label: 'Cartoon',   icon: c => <CartoonIcon color={c} /> },
+  { id: 'nft',       label: 'NFT',       icon: c => <NftIcon color={c} /> },
+  { id: 'cyberpunk', label: 'Cyberpunk', icon: c => <CyberpunkIcon color={c} /> },
+  { id: 'fantasy',   label: 'Fantasy',   icon: c => <FantasyIcon color={c} /> },
 ];
 
 const MOODS: { id: Mood; label: string }[] = [
@@ -72,108 +162,60 @@ const MOODS: { id: Mood; label: string }[] = [
   { id: 'neon',      label: 'Neon' },
 ];
 
-const BACKGROUNDS: { id: BgType; label: string; emoji: string }[] = [
-  { id: 'plain',           label: 'Plain',           emoji: '⬛' },
-  { id: 'abstract',        label: 'Abstract',        emoji: '🌀' },
-  { id: 'futuristic_city', label: 'Futuristic City', emoji: '🌆' },
-  { id: 'galaxy',          label: 'Galaxy',          emoji: '🌌' },
-];
-
-const PRESET_TEMPLATES = [
-  { label: 'Cyberpunk Hero',  character: 'cyberpunk warrior',  style: 'cyberpunk' as Style2D, traits: ['neon hair', 'glowing eyes', 'armor'] },
-  { label: 'Anime Girl',      character: 'anime girl',         style: 'anime'     as Style2D, traits: ['long hair', 'school uniform', 'big eyes'] },
-  { label: 'Space Monk',      character: 'space monk',         style: 'fantasy'   as Style2D, traits: ['robe', 'glowing staff', 'cosmic aura'] },
-  { label: 'NFT Ape',         character: 'ape avatar',         style: 'nft'       as Style2D, traits: ['hoodie', 'sunglasses', 'gold chain'] },
+const BACKGROUNDS: { id: BgType; label: string }[] = [
+  { id: 'plain',           label: 'Plain' },
+  { id: 'abstract',        label: 'Abstract' },
+  { id: 'futuristic_city', label: 'City' },
+  { id: 'galaxy',          label: 'Galaxy' },
 ];
 
 const TRAIT_SUGGESTIONS = [
   'glowing eyes', 'neon hair', 'armor', 'hoodie', 'sunglasses',
   'gold chain', 'wings', 'mask', 'tattoos', 'cybernetic arm',
+  'earrings', 'hat', 'scarf', 'cape', 'gloves',
 ];
 
-// ─── SMALL COMPONENTS ─────────────────────────────────────────────────────────
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'style',      label: 'Style' },
+  { id: 'traits',     label: 'Traits' },
+  { id: 'mood',       label: 'Mood' },
+  { id: 'background', label: 'Background' },
+];
 
-function Pill({ label, active, color, onPress }: {
-  label: string; active: boolean; color?: string; onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        p.pill,
-        active && { backgroundColor: color ?? C.accent, borderColor: color ?? C.accent },
-      ]}
-      activeOpacity={0.75}
-    >
-      <Text style={[p.pillText, active && { color: '#fff' }]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
+const STYLE_MAP: Record<Style2D, string> = {
+  anime:    'anime style, cel shading, vibrant colors, studio ghibli inspired',
+  cartoon:  'cartoon style, bold outlines, flat colors, pixar inspired',
+  nft:      'NFT avatar style, sharp edges, high contrast, stylized lighting',
+  cyberpunk:'cyberpunk, neon lights, futuristic, glowing elements, blade runner aesthetic',
+  fantasy:  'fantasy art, magical, epic lighting, artstation trending',
+};
+const MOOD_MAP: Record<Mood, string> = {
+  dramatic:  'dramatic lighting, high contrast shadows',
+  cinematic: 'cinematic lighting, golden hour, depth of field',
+  soft:      'soft lighting, pastel tones, dreamy atmosphere',
+  neon:      'neon lighting, vibrant glow, electric colors',
+};
+const BG_MAP: Record<BgType, string> = {
+  plain:           'simple clean background',
+  abstract:        'abstract geometric background',
+  futuristic_city: 'futuristic city background, neon skyline',
+  galaxy:          'galaxy background, stars, nebula',
+};
 
-function SliderRow({ label, value, onChange }: {
-  label: string; value: number; onChange: (v: number) => void;
-}) {
-  const TRACK = SW - 80;
-  return (
-    <View style={p.sliderRow}>
-      <Text style={p.sliderLabel}>{label}</Text>
-      <View
-        style={[p.track, { width: TRACK }]}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={e => {
-          const v = Math.round(Math.max(0, Math.min(100, (e.nativeEvent.locationX / TRACK) * 100)));
-          onChange(v);
-        }}
-        onResponderMove={e => {
-          const v = Math.round(Math.max(0, Math.min(100, (e.nativeEvent.locationX / TRACK) * 100)));
-          onChange(v);
-        }}
-      >
-        <View style={[p.fill, { width: `${value}%` }]} />
-        <View style={[p.thumb, { left: (value / 100) * TRACK - 10 }]} />
-      </View>
-      <Text style={p.sliderValue}>{value}</Text>
-    </View>
-  );
-}
-
-function StyleCard({ item, active, onPress }: {
-  item: typeof STYLES[0]; active: boolean; onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        p.styleCard,
-        active && { borderColor: item.color, backgroundColor: item.color + '22' },
-      ]}
-      activeOpacity={0.8}
-    >
-      <Text style={p.styleEmoji}>{item.emoji}</Text>
-      <Text style={[p.styleLabel, active && { color: item.color }]}>{item.label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-// ─── MAIN SCREEN ──────────────────────────────────────────────────────────────
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AvatarStudioScreen() {
   const [params, setParams] = useState<GenerateParams>({
-    style: 'cyberpunk',
-    character: '',
-    traits: [],
-    mood: 'cinematic',
-    background: 'futuristic_city',
-    seed: '',
-    creativity: 65,
-    detail: 70,
+    style: 'cyberpunk', character: '', traits: [],
+    mood: 'cinematic', background: 'futuristic_city', seed: '',
   });
-  const [traitInput, setTraitInput] = useState('');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [traitInput, setTraitInput]   = useState('');
+  const [generating, setGenerating]   = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [imageUri, setImageUri]       = useState<string | null>(null);
+  const [fullscreen, setFullscreen]   = useState(false);
+  const [refineModal, setRefineModal] = useState(false);
+  const [refineText, setRefineText]   = useState('');
+  const [activeTab, setActiveTab]     = useState<TabId>('style');
 
   const set = <K extends keyof GenerateParams>(k: K, v: GenerateParams[K]) =>
     setParams(prev => ({ ...prev, [k]: v }));
@@ -184,67 +226,29 @@ export default function AvatarStudioScreen() {
     set('traits', [...params.traits, clean]);
     setTraitInput('');
   };
-
-  const removeTrait = (t: string) =>
-    set('traits', params.traits.filter(x => x !== t));
-
-  const applyPreset = (preset: typeof PRESET_TEMPLATES[0]) => {
-    set('character', preset.character);
-    set('style', preset.style);
-    set('traits', preset.traits);
-  };
+  const removeTrait = (t: string) => set('traits', params.traits.filter(x => x !== t));
 
   const randomize = () => {
     const styles: Style2D[] = ['anime', 'cartoon', 'nft', 'cyberpunk', 'fantasy'];
-    const moods: Mood[] = ['dramatic', 'cinematic', 'soft', 'neon'];
-    const bgs: BgType[] = ['plain', 'abstract', 'futuristic_city', 'galaxy'];
+    const moods: Mood[]     = ['dramatic', 'cinematic', 'soft', 'neon'];
+    const bgs: BgType[]     = ['plain', 'abstract', 'futuristic_city', 'galaxy'];
     const chars = ['cyberpunk warrior', 'anime girl', 'space monk', 'fantasy knight', 'neon samurai'];
-    set('style', styles[Math.floor(Math.random() * styles.length)]);
-    set('mood', moods[Math.floor(Math.random() * moods.length)]);
+    set('style',      styles[Math.floor(Math.random() * styles.length)]);
+    set('mood',       moods[Math.floor(Math.random() * moods.length)]);
     set('background', bgs[Math.floor(Math.random() * bgs.length)]);
-    set('character', chars[Math.floor(Math.random() * chars.length)]);
-    set('seed', String(Math.floor(Math.random() * 999999)));
-    set('creativity', 50 + Math.floor(Math.random() * 40));
-    set('detail', 50 + Math.floor(Math.random() * 40));
+    set('character',  chars[Math.floor(Math.random() * chars.length)]);
+    set('seed',       String(Math.floor(Math.random() * 999999)));
   };
 
-  const handleSave = async () => {
-    if (!imageUri) return;
-    setSaving(true);
-    try {
-      const base64Data = imageUri.replace('data:image/png;base64,', '');
-      const fileUri = FS.cacheDirectory + `avatar_${Date.now()}.png`;
-      await FS.writeAsStringAsync(fileUri, base64Data, {
-        encoding: FS.EncodingType.Base64,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const Sharing = require('expo-sharing');
-      const canShare = await Sharing.isAvailableAsync();
-      if (!canShare) {
-        Alert.alert('Not supported', 'Sharing is not available on this device.');
-        return;
-      }
-      await Sharing.shareAsync(fileUri, { mimeType: 'image/png', dialogTitle: 'Save your avatar' });
-    } catch (e: any) {
-      console.error('Save error:', e?.message ?? e);
-      Alert.alert('Error', `Failed to save image: ${e?.message ?? 'unknown'}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleGenerate = async () => {
-    if (!params.character.trim()) {
-      Alert.alert('Missing input', 'Please describe your character first.');
-      return;
-    }
+  const callApi = async (overrideParams?: Partial<GenerateParams>) => {
+    const merged = { ...params, ...overrideParams };
     setGenerating(true);
     setImageUri(null);
     try {
       const res = await fetch(`${getApiUrl()}/generate-avatar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify(merged),
       });
       const data = await res.json();
       if (data.success && data.image) {
@@ -259,390 +263,472 @@ export default function AvatarStudioScreen() {
     }
   };
 
+  const handleGenerate = () => {
+    if (!params.character.trim()) {
+      Alert.alert('Missing input', 'Describe your character first.');
+      return;
+    }
+    callApi();
+  };
+
+  const handleRefine = () => {
+    if (!refineText.trim()) return;
+    const kw = refineText.toLowerCase();
+    const refinedTraits = [
+      ...params.traits.filter(t => !t.toLowerCase().split(' ').some(w => kw.includes(w))),
+      refineText.trim(),
+    ];
+    setRefineModal(false);
+    setRefineText('');
+    set('traits', refinedTraits);
+    callApi({ traits: refinedTraits, seed: String(Math.floor(Math.random() * 999999)) });
+  };
+
+  const handleSave = async () => {
+    if (!imageUri) return;
+    setSaving(true);
+    try {
+      const base64 = imageUri.replace('data:image/png;base64,', '');
+      await saveAvatarToGallery({
+        base64,
+        name: `${params.style} ${params.character}`.trim() || 'Avatar',
+        style: params.style,
+        character: params.character || 'custom',
+        createdAt: Date.now(),
+      });
+      Alert.alert('Saved', 'Avatar saved to your gallery.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const canGenerate = params.character.trim().length > 0 && !generating;
+  const PREVIEW_SIZE = SW * 0.52;
 
   return (
-    <View style={s.root}>
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Header ── */}
-        <View style={s.header}>
-          <View>
-            <Text style={s.title}>2D Avatar Studio</Text>
-            <Text style={s.subtitle}>AI-powered NFT-quality portraits</Text>
-          </View>
-          <TouchableOpacity onPress={randomize} style={s.randomBtn} activeOpacity={0.8}>
-            <Text style={s.randomBtnText}>🎲 Random</Text>
-          </TouchableOpacity>
+    <View style={st.root}>
+      {/* ── Header ── */}
+      <View style={st.header}>
+        <View>
+          <Text style={st.title}>2D Studio</Text>
+          <Text style={st.subtitle}>AI avatar generator</Text>
         </View>
+        <TouchableOpacity onPress={randomize} style={st.randomBtn} activeOpacity={0.8}>
+          <DiceIcon color={D.subtext} size={15} />
+          <Text style={st.randomBtnText}>Random</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* ── Preview ── */}
+      {/* ── Preview — centered ── */}
+      <View style={st.previewRow}>
         <TouchableOpacity
-          style={s.previewBox}
+          style={[st.previewBox, { width: PREVIEW_SIZE, height: PREVIEW_SIZE }]}
           activeOpacity={imageUri ? 0.85 : 1}
           onPress={() => imageUri && setFullscreen(true)}
         >
           {generating ? (
-            <View style={s.generatingBox}>
-              <ActivityIndicator size="large" color={C.neon} />
-              <Text style={s.generatingText}>AI generating…</Text>
-              <Text style={s.generatingSubtext}>This may take 15–30 seconds</Text>
+            <View style={st.genBox}>
+              <ActivityIndicator size="large" color={D.accent} />
+              <Text style={st.genText}>Generating…</Text>
+              <Text style={st.genSub}>15–30 sec</Text>
             </View>
           ) : imageUri ? (
-            <>
-              <Image source={{ uri: imageUri }} style={s.previewImage} contentFit="cover" />
-              <View style={s.previewOverlay}>
-                <Text style={s.previewHint}>Tap to expand</Text>
-              </View>
-            </>
+            <Image source={{ uri: imageUri }} style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }} contentFit="cover" />
           ) : (
-            <View style={s.emptyPreview}>
-              <Text style={s.emptyEmoji}>✨</Text>
-              <Text style={s.emptyText}>Your avatar will appear here</Text>
+            <View style={st.emptyBox}>
+              <SparkleIcon color={D.muted} size={36} />
+              <Text style={st.emptyText}>Preview</Text>
             </View>
           )}
         </TouchableOpacity>
 
-        {/* ── Output actions ── */}
+        {/* Action buttons — only when image exists */}
         {imageUri && !generating && (
-          <View style={s.outputActions}>
-            <TouchableOpacity style={s.outBtn} onPress={handleGenerate} activeOpacity={0.8}>
-              <Text style={s.outBtnText}>Regenerate</Text>
+          <View style={st.previewActions}>
+            <TouchableOpacity style={st.actionBtn} onPress={() => setRefineModal(true)} activeOpacity={0.8}>
+              <RefineIcon color={D.accent} size={15} />
+              <Text style={st.actionBtnText}>Refine</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.outBtn, { borderColor: C.cyan }]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.8}
-            >
-              <Text style={[s.outBtnText, { color: C.cyan }]}>
-                {saving ? 'Preparing…' : 'Share'}
-              </Text>
+            <TouchableOpacity style={st.actionBtn} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
+              <SaveIcon color={D.accent} size={15} />
+              <Text style={st.actionBtnText}>{saving ? '…' : 'Save'}</Text>
             </TouchableOpacity>
           </View>
         )}
+      </View>
 
-        {/* ── Presets ── */}
-        <Text style={s.sectionLabel}>QUICK PRESETS</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.presetRow}>
-          {PRESET_TEMPLATES.map(pt => (
-            <TouchableOpacity
-              key={pt.label}
-              style={s.presetChip}
-              onPress={() => applyPreset(pt)}
-              activeOpacity={0.8}
-            >
-              <Text style={s.presetText}>{pt.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* ── Style ── */}
-        <Text style={s.sectionLabel}>STYLE</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.styleRow}>
-          {STYLES.map(st => (
-            <StyleCard
-              key={st.id}
-              item={st}
-              active={params.style === st.id}
-              onPress={() => set('style', st.id)}
-            />
-          ))}
-        </ScrollView>
-
-        {/* ── Character ── */}
-        <Text style={s.sectionLabel}>CHARACTER</Text>
+      {/* ── Character input ── */}
+      <View style={st.inputRow}>
         <TextInput
-          style={s.input}
-          placeholder='e.g. "cyberpunk warrior", "anime girl"'
-          placeholderTextColor={C.muted}
+          style={st.charInput}
+          placeholder="Describe your character…"
+          placeholderTextColor={D.muted}
           value={params.character}
           onChangeText={v => set('character', v)}
+          returnKeyType="done"
         />
+      </View>
 
-        {/* ── Traits ── */}
-        <Text style={s.sectionLabel}>TRAITS</Text>
-        <View style={s.traitInputRow}>
-          <TextInput
-            style={[s.input, { flex: 1, marginBottom: 0 }]}
-            placeholder="Add a trait…"
-            placeholderTextColor={C.muted}
-            value={traitInput}
-            onChangeText={setTraitInput}
-            onSubmitEditing={() => addTrait(traitInput)}
-            returnKeyType="done"
-          />
-          <TouchableOpacity style={s.addBtn} onPress={() => addTrait(traitInput)} activeOpacity={0.8}>
-            <Text style={s.addBtnText}>+</Text>
+      {/* ── 4-tab toggle ── */}
+      <View style={st.tabBar}>
+        {TABS.map(tab => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[st.tab, activeTab === tab.id && st.tabActive]}
+            onPress={() => setActiveTab(tab.id)}
+            activeOpacity={0.8}
+          >
+            <Text style={[st.tabText, activeTab === tab.id && st.tabTextActive]}>{tab.label}</Text>
           </TouchableOpacity>
-        </View>
-        {/* Suggestions */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.suggRow}>
-          {TRAIT_SUGGESTIONS.filter(t => !params.traits.includes(t)).map(t => (
-            <TouchableOpacity key={t} style={s.suggChip} onPress={() => addTrait(t)} activeOpacity={0.8}>
-              <Text style={s.suggText}>+ {t}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        {/* Active traits */}
-        {params.traits.length > 0 && (
-          <View style={s.traitChips}>
-            {params.traits.map(t => (
-              <TouchableOpacity key={t} style={s.traitChip} onPress={() => removeTrait(t)} activeOpacity={0.8}>
-                <Text style={s.traitChipText}>{t} ✕</Text>
+        ))}
+      </View>
+
+      {/* ── Tab content ── */}
+      <View style={st.tabContent}>
+
+        {/* STYLE */}
+        {activeTab === 'style' && (
+          <View style={st.styleGrid}>
+            {STYLES.map(item => {
+              const active = params.style === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[st.styleCard, active && st.styleCardActive]}
+                  onPress={() => set('style', item.id)}
+                  activeOpacity={0.8}
+                >
+                  {item.icon(active ? D.accent : D.muted)}
+                  <Text style={[st.styleCardText, active && st.styleCardTextActive]}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* TRAITS */}
+        {activeTab === 'traits' && (
+          <View style={st.traitsPanel}>
+            <View style={st.traitInputRow}>
+              <TextInput
+                style={st.traitInput}
+                placeholder="Add a trait…"
+                placeholderTextColor={D.muted}
+                value={traitInput}
+                onChangeText={setTraitInput}
+                onSubmitEditing={() => addTrait(traitInput)}
+                returnKeyType="done"
+              />
+              <TouchableOpacity style={st.addBtn} onPress={() => addTrait(traitInput)}>
+                <PlusIcon color={D.panel} />
               </TouchableOpacity>
-            ))}
+            </View>
+            {params.traits.length > 0 && (
+              <View style={st.traitChips}>
+                {params.traits.map(t => (
+                  <TouchableOpacity key={t} style={st.traitChip} onPress={() => removeTrait(t)}>
+                    <Text style={st.traitChipText}>{t}</Text>
+                    <CloseIcon color={D.subtext} size={10} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {TRAIT_SUGGESTIONS.filter(t => !params.traits.includes(t)).map(t => (
+                <TouchableOpacity key={t} style={st.suggChip} onPress={() => addTrait(t)}>
+                  <Text style={st.suggText}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         )}
 
-        {/* ── Mood ── */}
-        <Text style={s.sectionLabel}>MOOD / LIGHTING</Text>
-        <View style={s.pillRow}>
-          {MOODS.map(m => (
-            <Pill
-              key={m.id}
-              label={m.label}
-              active={params.mood === m.id}
-              onPress={() => set('mood', m.id)}
-            />
-          ))}
-        </View>
-
-        {/* ── Background ── */}
-        <Text style={s.sectionLabel}>BACKGROUND</Text>
-        <View style={s.pillRow}>
-          {BACKGROUNDS.map(b => (
-            <Pill
-              key={b.id}
-              label={`${b.emoji} ${b.label}`}
-              active={params.background === b.id}
-              onPress={() => set('background', b.id)}
-            />
-          ))}
-        </View>
-
-        {/* ── Advanced ── */}
-        <TouchableOpacity
-          style={s.advancedToggle}
-          onPress={() => setAdvancedOpen(o => !o)}
-          activeOpacity={0.8}
-        >
-          <Text style={s.advancedToggleText}>
-            {advancedOpen ? '▲' : '▼'} Advanced Settings
-          </Text>
-        </TouchableOpacity>
-
-        {advancedOpen && (
-          <View style={s.advancedBox}>
-            <Text style={s.sectionLabel}>SEED (optional)</Text>
-            <TextInput
-              style={s.input}
-              placeholder="e.g. 42 (leave blank for random)"
-              placeholderTextColor={C.muted}
-              value={params.seed}
-              onChangeText={v => set('seed', v)}
-              keyboardType="numeric"
-            />
-            <SliderRow
-              label="Creativity"
-              value={params.creativity}
-              onChange={v => set('creativity', v)}
-            />
-            <SliderRow
-              label="Detail"
-              value={params.detail}
-              onChange={v => set('detail', v)}
-            />
+        {/* MOOD */}
+        {activeTab === 'mood' && (
+          <View style={st.optionGrid}>
+            {MOODS.map(m => {
+              const active = params.mood === m.id;
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[st.optionCard, active && st.optionCardActive]}
+                  onPress={() => set('mood', m.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[st.optionCardText, active && st.optionCardTextActive]}>{m.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
-        {/* ── Generate ── */}
+        {/* BACKGROUND */}
+        {activeTab === 'background' && (
+          <View style={st.optionGrid}>
+            {BACKGROUNDS.map(b => {
+              const active = params.background === b.id;
+              return (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[st.optionCard, active && st.optionCardActive]}
+                  onPress={() => set('background', b.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[st.optionCardText, active && st.optionCardTextActive]}>{b.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* ── Generate button ── */}
+      <View style={st.generateRow}>
         <TouchableOpacity
-          style={[s.generateBtn, !canGenerate && s.generateBtnDisabled]}
+          style={[st.generateBtn, !canGenerate && st.generateBtnOff]}
           onPress={handleGenerate}
           disabled={!canGenerate}
           activeOpacity={0.85}
         >
           {generating ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={D.panel} />
           ) : (
-            <Text style={s.generateBtnText}>Generate Avatar</Text>
+            <>
+              <SparkleIcon color="#fff" size={15} />
+              <Text style={st.generateBtnText}>Generate Avatar</Text>
+            </>
           )}
         </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      </View>
 
       {/* ── Fullscreen modal ── */}
       <Modal visible={fullscreen} transparent animationType="fade" onRequestClose={() => setFullscreen(false)}>
-        <View style={s.fsOverlay}>
-          <TouchableOpacity style={s.fsClose} onPress={() => setFullscreen(false)}>
-            <Text style={s.fsCloseText}>✕</Text>
+        <View style={st.fsOverlay}>
+          <TouchableOpacity style={st.fsClose} onPress={() => setFullscreen(false)}>
+            <CloseIcon color="#fff" size={20} />
           </TouchableOpacity>
-          {imageUri && (
-            <Image source={{ uri: imageUri }} style={s.fsImage} contentFit="contain" />
-          )}
+          {imageUri && <Image source={{ uri: imageUri }} style={{ width: SW, height: SW }} contentFit="contain" />}
+        </View>
+      </Modal>
+
+      {/* ── Refine modal ── */}
+      <Modal visible={refineModal} transparent animationType="slide" onRequestClose={() => setRefineModal(false)}>
+        <View style={st.refineOverlay}>
+          <View style={st.refineSheet}>
+            <Text style={st.refineTitle}>Refine Avatar</Text>
+            <Text style={st.refineSub}>Describe what to change — character and style stay the same.</Text>
+            <TextInput
+              style={st.refineInput}
+              placeholder='e.g. "different earrings", "red hair", "add a hat"'
+              placeholderTextColor={D.muted}
+              value={refineText}
+              onChangeText={setRefineText}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleRefine}
+            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {['different earrings', 'add a hat', 'red hair', 'remove glasses', 'add wings', 'gold necklace'].map(opt => (
+                <TouchableOpacity key={opt} style={st.refineChip} onPress={() => setRefineText(opt)}>
+                  <Text style={st.refineChipText}>{opt}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={st.refineActions}>
+              <TouchableOpacity style={st.refineCancel} onPress={() => setRefineModal(false)}>
+                <Text style={st.refineCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[st.refineConfirm, !refineText.trim() && { opacity: 0.4 }]}
+                onPress={handleRefine}
+                disabled={!refineText.trim()}
+              >
+                <SparkleIcon color="#fff" size={16} />
+                <Text style={st.refineConfirmText}>Regenerate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
   );
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: C.bg },
-  scroll:  { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const CARD_W = (SW - 48 - 16) / 3; // 3 per row with padding
 
+const st = StyleSheet.create({
+  root: { flex: 1, backgroundColor: D.bg },
+
+  // Header
   header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start', marginBottom: 24,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16,
   },
-  title:    { fontSize: 26, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, color: C.muted, marginTop: 2 },
-
+  title:    { fontSize: 22, fontWeight: '700', color: D.text },
+  subtitle: { fontSize: 12, color: D.muted, marginTop: 2 },
   randomBtn: {
-    backgroundColor: C.card, borderRadius: 20, paddingHorizontal: 14,
-    paddingVertical: 8, borderWidth: 1, borderColor: C.border,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: D.card, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: D.border,
   },
-  randomBtnText: { color: C.sub, fontSize: 13, fontWeight: '600' },
+  randomBtnText: { color: D.subtext, fontSize: 12, fontWeight: '600' },
 
   // Preview
+  previewRow: { alignItems: 'center', marginBottom: 14 },
   previewBox: {
-    width: '100%', aspectRatio: 1, borderRadius: 20,
-    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-    overflow: 'hidden', marginBottom: 12, justifyContent: 'center', alignItems: 'center',
+    borderRadius: 20, backgroundColor: D.card,
+    borderWidth: 1, borderColor: D.border,
+    overflow: 'hidden', justifyContent: 'center', alignItems: 'center',
   },
-  previewImage:  { width: '100%', height: '100%' },
-  previewOverlay: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#00000066', paddingVertical: 8, alignItems: 'center',
-  },
-  previewHint: { color: '#ffffff88', fontSize: 12 },
-  generatingBox: { alignItems: 'center', gap: 12 },
-  generatingText:    { color: C.neon, fontSize: 16, fontWeight: '700' },
-  generatingSubtext: { color: C.muted, fontSize: 12 },
-  emptyPreview: { alignItems: 'center', gap: 10 },
-  emptyEmoji: { fontSize: 48 },
-  emptyText:  { color: C.muted, fontSize: 14 },
+  genBox:   { alignItems: 'center', gap: 10 },
+  genText:  { color: D.text, fontSize: 13, fontWeight: '600' },
+  genSub:   { color: D.muted, fontSize: 11 },
+  emptyBox: { alignItems: 'center', gap: 8 },
+  emptyText:{ color: D.muted, fontSize: 12 },
 
-  outputActions: {
-    flexDirection: 'row', gap: 10, marginBottom: 24,
+  previewActions: {
+    flexDirection: 'row', gap: 10, marginTop: 10,
   },
-  outBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    borderWidth: 1, borderColor: C.neon, alignItems: 'center',
+  actionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1.5, borderColor: D.border,
+    backgroundColor: D.card,
   },
-  outBtnText: { color: C.neon, fontWeight: '600', fontSize: 14 },
+  actionBtnText: { color: D.text, fontSize: 13, fontWeight: '600' },
 
-  sectionLabel: {
-    fontSize: 11, fontWeight: '700', color: C.muted,
-    letterSpacing: 1.5, marginBottom: 10, marginTop: 20,
+  // Character input
+  inputRow: { paddingHorizontal: 20, marginBottom: 14 },
+  charInput: {
+    backgroundColor: D.card, borderRadius: 14,
+    paddingHorizontal: 16, paddingVertical: 13,
+    color: D.text, fontSize: 14,
+    borderWidth: 1, borderColor: D.border,
   },
 
-  // Presets
-  presetRow: { marginBottom: 4 },
-  presetChip: {
-    backgroundColor: C.card, borderRadius: 20, paddingHorizontal: 14,
-    paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: C.border,
+  // 4-tab bar — matches 3D editor mainTabRow
+  tabBar: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    backgroundColor: D.card,
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 16,
   },
-  presetText: { color: C.sub, fontSize: 13, fontWeight: '600' },
-
-  // Style cards
-  styleRow: { marginBottom: 4 },
-
-  // Input
-  input: {
-    backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 14,
-    paddingVertical: 12, color: C.text, fontSize: 14,
-    borderWidth: 1, borderColor: C.border, marginBottom: 8,
+  tab: {
+    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
   },
+  tabActive: { backgroundColor: D.accent },
+  tabText:   { fontSize: 12, fontWeight: '600', color: D.muted },
+  tabTextActive: { color: D.panel },
+
+  // Tab content area
+  tabContent: { flex: 1, paddingHorizontal: 20 },
+
+  // Style grid — 3 per row, square cards
+  styleGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+  },
+  styleCard: {
+    width: CARD_W, paddingVertical: 10, paddingTop: 12,
+    backgroundColor: D.card, borderRadius: 14,
+    borderWidth: 1.5, borderColor: D.border,
+    alignItems: 'center', justifyContent: 'center', gap: 5,
+  },
+  styleCardActive:    { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  styleCardText:      { fontSize: 10, fontWeight: '700', color: D.muted },
+  styleCardTextActive:{ color: D.accent },
 
   // Traits
-  traitInputRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  traitsPanel:   { gap: 10 },
+  traitInputRow: { flexDirection: 'row', gap: 8 },
+  traitInput: {
+    flex: 1, backgroundColor: D.card, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    color: D.text, fontSize: 13, borderWidth: 1, borderColor: D.border,
+  },
   addBtn: {
-    backgroundColor: C.accent, width: 44, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center',
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: D.accent, alignItems: 'center', justifyContent: 'center',
   },
-  addBtnText: { color: '#fff', fontSize: 22, fontWeight: '300' },
-  suggRow: { marginBottom: 8 },
-  suggChip: {
-    backgroundColor: C.accentLo + '55', borderRadius: 16, paddingHorizontal: 12,
-    paddingVertical: 6, marginRight: 6, borderWidth: 1, borderColor: C.accentLo,
-  },
-  suggText: { color: C.neon, fontSize: 12 },
-  traitChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  traitChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   traitChip: {
-    backgroundColor: C.accent + '33', borderRadius: 16, paddingHorizontal: 12,
-    paddingVertical: 6, borderWidth: 1, borderColor: C.accent,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: D.card, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: D.border,
   },
-  traitChipText: { color: C.neon, fontSize: 12, fontWeight: '600' },
+  traitChipText: { color: D.text, fontSize: 12, fontWeight: '600' },
+  suggChip: {
+    backgroundColor: D.card, borderRadius: 16,
+    paddingHorizontal: 12, paddingVertical: 7, marginRight: 8,
+    borderWidth: 1, borderColor: D.border,
+  },
+  suggText: { color: D.subtext, fontSize: 12 },
 
-  // Mood / bg pills
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-
-  // Advanced
-  advancedToggle: {
-    marginTop: 20, paddingVertical: 12, alignItems: 'center',
-    borderWidth: 1, borderColor: C.border, borderRadius: 12,
-    backgroundColor: C.card,
+  // Mood / Background — 2x2 grid of cards
+  optionGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
   },
-  advancedToggleText: { color: C.sub, fontSize: 13, fontWeight: '600' },
-  advancedBox: {
-    backgroundColor: C.card, borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: C.border, marginTop: 8,
+  optionCard: {
+    width: (SW - 40 - 8) / 2, paddingVertical: 14,
+    backgroundColor: D.card, borderRadius: 14,
+    borderWidth: 1.5, borderColor: D.border,
+    alignItems: 'center', justifyContent: 'center',
   },
+  optionCardActive:    { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  optionCardText:      { fontSize: 13, fontWeight: '600', color: D.muted },
+  optionCardTextActive:{ color: D.accent },
 
   // Generate button
-  generateBtn: {
-    marginTop: 28, height: 58, borderRadius: 16,
-    backgroundColor: C.accent, justifyContent: 'center', alignItems: 'center',
-    shadowColor: C.neonGlow, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1, shadowRadius: 20, elevation: 12,
+  generateRow: {
+    paddingHorizontal: 20, paddingBottom: 110, paddingTop: 12,
   },
-  generateBtnDisabled: { opacity: 0.4, shadowOpacity: 0 },
-  generateBtnText: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
+  generateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 46, borderRadius: 14, backgroundColor: '#7c3aed',
+    shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4, shadowRadius: 16, elevation: 8,
+  },
+  generateBtnOff:  { opacity: 0.35, shadowOpacity: 0 },
+  generateBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   // Fullscreen
   fsOverlay: { flex: 1, backgroundColor: '#000000ee', justifyContent: 'center', alignItems: 'center' },
-  fsClose: { position: 'absolute', top: 60, right: 20, zIndex: 10, padding: 10 },
-  fsCloseText: { color: '#fff', fontSize: 22 },
-  fsImage: { width: SW, height: SW },
-});
+  fsClose:   { position: 'absolute', top: 60, right: 20, zIndex: 10, padding: 10 },
 
-// Pill + Slider styles
-const p = StyleSheet.create({
-  pill: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-    borderWidth: 1, borderColor: C.border, backgroundColor: C.card,
+  // Refine modal
+  refineOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#00000088' },
+  refineSheet: {
+    backgroundColor: D.panel, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40, borderTopWidth: 1, borderColor: D.border,
   },
-  pillText: { color: C.muted, fontSize: 13, fontWeight: '600' },
-
-  styleCard: {
-    width: 80, height: 90, borderRadius: 14, backgroundColor: C.card,
-    borderWidth: 1.5, borderColor: C.border, justifyContent: 'center',
-    alignItems: 'center', marginRight: 10, gap: 6,
+  refineTitle: { fontSize: 18, fontWeight: '700', color: D.text, marginBottom: 6 },
+  refineSub:   { fontSize: 13, color: D.subtext, marginBottom: 14 },
+  refineInput: {
+    backgroundColor: D.card, borderRadius: 12, paddingHorizontal: 14,
+    paddingVertical: 12, color: D.text, fontSize: 14,
+    borderWidth: 1, borderColor: D.border, marginBottom: 12,
   },
-  styleEmoji: { fontSize: 26 },
-  styleLabel: { color: C.muted, fontSize: 11, fontWeight: '700' },
-
-  sliderRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16,
+  refineChip: {
+    backgroundColor: D.card, borderRadius: 14,
+    paddingHorizontal: 12, paddingVertical: 7, marginRight: 8,
+    borderWidth: 1, borderColor: D.border,
   },
-  sliderLabel: { color: C.sub, fontSize: 12, fontWeight: '700', width: 70 },
-  sliderValue: { color: C.sub, fontSize: 12, width: 28, textAlign: 'right' },
-  track: {
-    height: 6, backgroundColor: C.border, borderRadius: 3,
-    justifyContent: 'center',
+  refineChipText: { color: D.subtext, fontSize: 12 },
+  refineActions:  { flexDirection: 'row', gap: 10, marginTop: 4 },
+  refineCancel: {
+    flex: 1, paddingVertical: 14, borderRadius: 14,
+    borderWidth: 1.5, borderColor: D.border, alignItems: 'center',
   },
-  fill: { height: 6, backgroundColor: C.accent, borderRadius: 3, position: 'absolute', left: 0 },
-  thumb: {
-    position: 'absolute', width: 20, height: 20, borderRadius: 10,
-    backgroundColor: C.neon, top: -7,
-    shadowColor: C.neonGlow, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1, shadowRadius: 8,
+  refineCancelText: { color: D.muted, fontWeight: '600' },
+  refineConfirm: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: '#7c3aed',
   },
+  refineConfirmText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
