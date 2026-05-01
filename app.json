@@ -39,7 +39,15 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Avatara to save avatars to your photo library.",
+          "savePhotosPermission": "Allow Avatara to save avatars to your photo library.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

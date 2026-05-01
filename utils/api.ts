@@ -6,7 +6,7 @@ export const getApiUrl = () => {
   return host ? `http://${host}:5000/api` : 'http://192.168.100.97:5000/api';
 };
 
-const getToken = async () => AsyncStorage.getItem('authToken');
+const getToken = async () => AsyncStorage.getItem('auth_token');
 
 const authHeaders = async () => ({
   'Content-Type': 'application/json',

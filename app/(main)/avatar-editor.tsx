@@ -1,8 +1,9 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { saveAvatarConfig } from '@/utils/api';
 import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import {
-    Dimensions, Modal, ScrollView, StyleSheet,
+    Alert, Dimensions, Modal, ScrollView, StyleSheet,
     Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { WebView } from 'react-native-webview';
