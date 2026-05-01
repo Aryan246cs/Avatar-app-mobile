@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import {
     Dimensions, Modal, ScrollView, StyleSheet,
-    Text, TextInput, TouchableOpacity, View,
+    Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -12,16 +12,19 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH  = Dimensions.get('window').width;
 const PANEL_HEIGHT  = SCREEN_HEIGHT * 0.58;
 
-// Design tokens — dark theme
+// Design tokens — warm vibrant theme
 const D = {
-  bg:       '#0f0f0f',
-  panel:    '#161616',
-  card:     '#1e1e1e',
-  border:   '#2a2a2a',
-  accent:   '#ffffff',
-  muted:    '#6b7280',
-  text:     '#f3f4f6',
-  subtext:  '#9ca3af',
+  bg:       '#FDF8F3',
+  panel:    '#FFFFFF',
+  card:     '#FDF0E4',
+  border:   '#EBCCAD',
+  accent:   '#EC802B',
+  muted:    '#9A7A5A',
+  text:     '#2C1A0E',
+  subtext:  '#6B4A2A',
+  teal:     '#66BCB4',
+  yellow:   '#EDC55B',
+  cream:    '#EBCCAD',
 };
 
 const getAvatarViewerUrl = () => {
@@ -913,7 +916,17 @@ export default function AvatarEditorScreen() {
           <TouchableOpacity onPress={handleReset} style={s.resetBtn} activeOpacity={0.8}>
             <Text style={s.resetBtnText}>Reset</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => {}} style={s.saveBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => {
+              saveAvatarConfig({
+                bodyType: selectedBody,
+                gender: selectedGender,
+                textures: selectedTextures,
+                accessories,
+              }).then(data => {
+                if (data.success) Alert.alert('Saved!', 'Your avatar has been saved.');
+                else Alert.alert('Error', data.message || 'Failed to save');
+              }).catch(() => Alert.alert('Error', 'Network error'));
+            }} style={s.saveBtn} activeOpacity={0.8}>
             <Text style={s.saveBtnText}>Save Avatar</Text>
           </TouchableOpacity>
         </View>
@@ -1063,7 +1076,7 @@ const s = StyleSheet.create({
   // Action bar
   actionBar: {
     flexDirection: 'row', gap: 12,
-    paddingHorizontal: 20, paddingVertical: 14,
+    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120,
     borderTopWidth: 1, borderTopColor: D.border,
   },
   resetBtn: {
@@ -1076,26 +1089,26 @@ const s = StyleSheet.create({
     flex: 2, height: 48, borderRadius: 14,
     backgroundColor: D.accent,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#fff', shadowOpacity: 0.15,
-    shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    shadowColor: D.accent, shadowOpacity: 0.3,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: D.panel },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#ffffff' },
 });
 
 // ─── COLOR PICKER MODAL STYLES ────────────────────────────────────────────────
 const sp = StyleSheet.create({
-  overlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  sheet:     { backgroundColor: '#1a1a1a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  overlay:   { flex: 1, backgroundColor: 'rgba(44,26,14,0.6)', justifyContent: 'flex-end' },
+  sheet:     { backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, borderWidth: 1.5, borderColor: '#EBCCAD' },
   header:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title:     { fontSize: 18, fontWeight: '700', color: '#f3f4f6' },
-  closeBtn:  { fontSize: 18, color: '#6b7280', paddingHorizontal: 4 },
-  rgbInput:  { width: '100%', height: 40, borderRadius: 8, backgroundColor: '#2a2a2a', color: '#f3f4f6', textAlign: 'center', fontSize: 14, fontWeight: '600', borderWidth: 1, borderColor: '#333' },
-  hexInput:  { flex: 1, height: 40, borderRadius: 8, backgroundColor: '#2a2a2a', color: '#f3f4f6', paddingHorizontal: 12, fontSize: 14, letterSpacing: 1, borderWidth: 1, borderColor: '#333' },
+  title:     { fontSize: 18, fontWeight: '800', color: '#2C1A0E' },
+  closeBtn:  { fontSize: 18, color: '#9A7A5A', paddingHorizontal: 4 },
+  rgbInput:  { width: '100%', height: 40, borderRadius: 10, backgroundColor: '#FDF0E4', color: '#2C1A0E', textAlign: 'center', fontSize: 14, fontWeight: '600', borderWidth: 1, borderColor: '#EBCCAD' },
+  hexInput:  { flex: 1, height: 40, borderRadius: 10, backgroundColor: '#FDF0E4', color: '#2C1A0E', paddingHorizontal: 12, fontSize: 14, letterSpacing: 1, borderWidth: 1, borderColor: '#EBCCAD' },
   actions:   { flexDirection: 'row', gap: 12 },
-  cancelBtn: { flex: 1, height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: '#333', justifyContent: 'center', alignItems: 'center' },
-  cancelText:{ fontSize: 15, fontWeight: '600', color: '#6b7280' },
-  applyBtn:  { flex: 2, height: 48, borderRadius: 14, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
-  applyText: { fontSize: 15, fontWeight: '700', color: '#0f0f0f' },
+  cancelBtn: { flex: 1, height: 48, borderRadius: 14, borderWidth: 1.5, borderColor: '#EBCCAD', justifyContent: 'center', alignItems: 'center' },
+  cancelText:{ fontSize: 15, fontWeight: '600', color: '#9A7A5A' },
+  applyBtn:  { flex: 2, height: 48, borderRadius: 14, backgroundColor: '#EC802B', justifyContent: 'center', alignItems: 'center' },
+  applyText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 });
 

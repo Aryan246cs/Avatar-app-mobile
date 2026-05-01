@@ -2,16 +2,16 @@ import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { Circle, Line, Path, Rect, Svg } from 'react-native-svg';
 import { saveAvatarToGallery } from './export-avatar';
@@ -25,14 +25,14 @@ const getApiUrl = () => {
 
 // ─── Theme — matches home page ────────────────────────────────────────────────
 const D = {
-  bg:      '#060608',
-  panel:   '#0d0d18',
-  card:    '#13131f',
-  border:  '#1e1e2e',
-  accent:  '#a78bfa',
-  muted:   '#6b7280',
-  text:    '#f1f5f9',
-  subtext: '#94a3b8',
+  bg:      '#FDF8F3',
+  panel:   '#FFFFFF',
+  card:    '#FDF0E4',
+  border:  '#EBCCAD',
+  accent:  '#EC802B',
+  muted:   '#9A7A5A',
+  text:    '#2C1A0E',
+  subtext: '#6B4A2A',
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -289,14 +289,26 @@ export default function AvatarStudioScreen() {
     setSaving(true);
     try {
       const base64 = imageUri.replace('data:image/png;base64,', '');
+      const name = `${params.style} ${params.character}`.trim() || 'Avatar';
+
+      // Save to local gallery (export-avatar)
       await saveAvatarToGallery({
         base64,
-        name: `${params.style} ${params.character}`.trim() || 'Avatar',
+        name,
         style: params.style,
         character: params.character || 'custom',
         createdAt: Date.now(),
       });
-      Alert.alert('Saved', 'Avatar saved to your gallery.');
+
+      // Save to backend MongoDB gallery
+      await saveToGallery({
+        name,
+        style: params.style,
+        character: params.character || 'custom',
+        imageData: base64,
+      });
+
+      Alert.alert('Saved!', 'Avatar saved to your gallery.');
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Failed to save');
     } finally {
@@ -622,9 +634,9 @@ const st = StyleSheet.create({
   tab: {
     flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
   },
-  tabActive: { backgroundColor: D.accent },
+  tabActive: { backgroundColor: '#EC802B' },
   tabText:   { fontSize: 12, fontWeight: '600', color: D.muted },
-  tabTextActive: { color: D.panel },
+  tabTextActive: { color: '#FFFFFF' },
 
   // Tab content area
   tabContent: { flex: 1, paddingHorizontal: 20 },
@@ -690,12 +702,12 @@ const st = StyleSheet.create({
   },
   generateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    height: 46, borderRadius: 14, backgroundColor: '#7c3aed',
-    shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4, shadowRadius: 16, elevation: 8,
+    height: 46, borderRadius: 14, backgroundColor: '#EC802B',
+    shadowColor: '#EC802B', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   generateBtnOff:  { opacity: 0.35, shadowOpacity: 0 },
-  generateBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  generateBtnText: { color: '#2C1A0E', fontSize: 14, fontWeight: '700' },
 
   // Fullscreen
   fsOverlay: { flex: 1, backgroundColor: '#000000ee', justifyContent: 'center', alignItems: 'center' },

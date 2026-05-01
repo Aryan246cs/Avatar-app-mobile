@@ -38,7 +38,7 @@ export function Scene({
   const cam = CAMERA_PRESETS[cameraMode];
 
   return (
-    <div style={{ width: '100%', height: '100vh', background: '#f8f9fa' }}>
+    <div style={{ width: '100%', height: '100vh', background: '#FDF8F3' }}>
       <Canvas camera={{ position: cam.position, fov: cam.fov }} shadows>
         <ambientLight intensity={0.7} />
         <directionalLight

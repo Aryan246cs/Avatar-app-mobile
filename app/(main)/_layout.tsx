@@ -4,13 +4,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
 
 const D = {
-  bg:     '#060608',
-  panel:  '#0d0d18',
-  card:   '#13131f',
-  border: '#1e1e2e',
-  accent: '#ffffff',
-  muted:  '#6b7280',
-  purple: '#7c3aed',
+  bg:     '#FDF8F3',
+  panel:  '#FFFFFF',
+  card:   '#FDF0E4',
+  border: '#EBCCAD',
+  accent: '#EC802B',
+  muted:  '#9A7A5A',
+  purple: '#66BCB4',
 };
 
 function HomeIcon({ color }: { color: string }) {
@@ -50,6 +50,15 @@ function ExportIcon({ color }: { color: string }) {
   );
 }
 
+function ProfileIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={1.8}/>
+      <Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={color} strokeWidth={1.8} strokeLinecap="round"/>
+    </Svg>
+  );
+}
+
 // Routes to hide from the nav bar
 const HIDDEN_ROUTES = new Set(['item-selection']);
 
@@ -75,7 +84,7 @@ function FloatingTabBar({ state, descriptors, navigation }: any) {
             if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
           };
 
-          const iconColor = focused ? '#a78bfa' : D.muted;
+          const iconColor = focused ? '#EC802B' : D.muted;
 
           return (
             <TouchableOpacity
@@ -105,34 +114,22 @@ const tb = StyleSheet.create({
   },
   pill: {
     flexDirection: 'row',
-    backgroundColor: '#0d0d18',
+    backgroundColor: '#FFFFFF',
     borderRadius: 50,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#1e1e2e',
-    shadowColor: '#7c3aed',
+    borderWidth: 1.5,
+    borderColor: '#EBCCAD',
+    shadowColor: '#EC802B',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 20,
     gap: 4,
   },
-  tab: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  iconWrapActive: {
-    backgroundColor: '#7c3aed28',
-  },
+  tab: { alignItems: 'center', justifyContent: 'center' },
+  iconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  iconWrapActive: { backgroundColor: '#EC802B20' },
 });
 
 export default function MainLayout() {
@@ -156,6 +153,10 @@ export default function MainLayout() {
       <Tabs.Screen
         name="export-avatar"
         options={{ title: 'Export', tabBarIcon: ({ color }) => <ExportIcon color={color} /> }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: 'Profile', tabBarIcon: ({ color }) => <ProfileIcon color={color} /> }}
       />
       <Tabs.Screen name="item-selection" options={{ href: null }} />
     </Tabs>
