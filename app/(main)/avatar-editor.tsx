@@ -658,27 +658,6 @@ export default function AvatarEditorScreen() {
                   />
                 ))}
               </View>
-
-              {/* Camera Mode */}
-              <Text style={s.sectionLabel}>View</Text>
-              <View style={s.genderRow}>
-                {([
-                  { id: 'full' as const, label: '🧍 Full' },
-                  { id: 'upper' as const, label: '👕 Upper' },
-                  { id: 'face' as const, label: '😊 Face' },
-                ]).map(m => (
-                  <TouchableOpacity
-                    key={m.id}
-                    onPress={() => handleCameraMode(m.id)}
-                    style={[s.genderBtn, cameraMode === m.id && s.genderBtnActive]}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[s.genderBtnText, cameraMode === m.id && s.genderBtnTextActive]}>
-                      {m.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
           )}
 

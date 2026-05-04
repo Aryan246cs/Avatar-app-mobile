@@ -2,11 +2,12 @@ import { clearAuthToken } from '@/utils/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-    Alert, Dimensions, ScrollView, StatusBar,
-    StyleSheet, Text, TouchableOpacity, View,
+  Alert, Dimensions, Image,
+  ScrollView, StatusBar,
+  StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
 import Animated, {
-    FadeInDown, FadeInRight
+  FadeInDown, FadeInRight
 } from 'react-native-reanimated';
 import { Circle, Path, Svg } from 'react-native-svg';
 
@@ -81,13 +82,11 @@ export default function HomeScreen() {
               <Text style={s.heroTitle}>Create{'\n'}Your{'\n'}Digital{'\n'}Self.</Text>
               <Text style={s.heroSub}>3D · 2D · AI</Text>
             </View>
-            <View style={s.avatarPreview}>
-              <View style={s.avatarPlaceholder}>
-                <View style={s.ap1} />
-                <View style={s.ap2} />
-                <View style={s.ap3} />
-              </View>
-            </View>
+            <Image
+              source={require('../../assets/images/hero-avatar-removebg-preview.png')}
+              style={s.heroImage}
+              resizeMode="contain"
+            />
           </Animated.View>
         </LinearGradient>
 
@@ -144,6 +143,7 @@ const s = StyleSheet.create({
 
   heroBody: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, gap: 8 },
   heroLeft: { flex: 1 },
+  heroImage: { width: SW * 0.42, height: SW * 0.55, borderRadius: 20 },
   avatarPreview: { width: SW * 0.38, height: SW * 0.48, alignItems: 'center', justifyContent: 'center' },
   avatarPlaceholder: { width: SW * 0.34, height: SW * 0.34, alignItems: 'center', justifyContent: 'center' },
   ap1: { position: 'absolute', width: SW * 0.34, height: SW * 0.34, borderRadius: SW * 0.17, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
