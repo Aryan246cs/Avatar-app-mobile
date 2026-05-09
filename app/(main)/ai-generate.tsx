@@ -232,7 +232,18 @@ export default function AvatarStudioScreen() {
     const styles: Style2D[] = ['anime', 'cartoon', 'nft', 'cyberpunk', 'fantasy'];
     const moods: Mood[]     = ['dramatic', 'cinematic', 'soft', 'neon'];
     const bgs: BgType[]     = ['plain', 'abstract', 'futuristic_city', 'galaxy'];
-    const chars = ['cyberpunk warrior', 'anime girl', 'space monk', 'fantasy knight', 'neon samurai'];
+    const chars = [
+      'young woman with long dark hair',
+      'bearded man with intense eyes',
+      'teenage girl with colorful hair',
+      'mysterious hooded figure',
+      'young man with sharp features',
+      'woman with traditional Indian jewelry',
+      'man with tribal face paint',
+      'girl with silver hair and freckles',
+      'warrior with battle scars',
+      'elegant woman in royal attire',
+    ];
     set('style',      styles[Math.floor(Math.random() * styles.length)]);
     set('mood',       moods[Math.floor(Math.random() * moods.length)]);
     set('background', bgs[Math.floor(Math.random() * bgs.length)]);
@@ -379,7 +390,7 @@ export default function AvatarStudioScreen() {
       <View style={st.inputRow}>
         <TextInput
           style={st.charInput}
-          placeholder="Describe your character…"
+          placeholder="e.g. young woman with dark hair, Indian girl with jewelry…"
           placeholderTextColor={D.muted}
           value={params.character}
           onChangeText={v => set('character', v)}

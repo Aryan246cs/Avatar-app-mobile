@@ -6,6 +6,7 @@ import {
     Alert, Dimensions, Modal, ScrollView, StyleSheet,
     Text, TextInput, TouchableOpacity, View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -431,6 +432,11 @@ function ColorPickerModal({
 
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function AvatarEditorScreen() {
+  const insets = useSafeAreaInsets();
+  // Tab bar is: insets.bottom + 16 (margin) + ~56 (pill height) = tab bar top edge
+  // Add 20px gap so the drag pill sits clearly above it
+  const COLLAPSED_HEIGHT = insets.bottom + 16 + 56 + 20;
+
   // ── State (identical to original) ──────────────────────────────────────
   const [selectedBody,    setSelectedBody]    = useState<BodyType>('female');
   const [selectedGender,  setSelectedGender]  = useState<'female' | 'male'>('female');
@@ -464,6 +470,9 @@ export default function AvatarEditorScreen() {
 
   // Camera mode
   const [cameraMode, setCameraModeState] = useState<'full' | 'upper' | 'face'>('full');
+
+  // Panel collapsed state
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
 
   // Color picker — shared for Colors tab and Store tab
   const [pickerVisible,      setPickerVisible]      = useState(false);
@@ -593,10 +602,24 @@ export default function AvatarEditorScreen() {
       </View>
 
       {/* ── BOTTOM: Control panel ── */}
-      <View style={s.panel}>
+      <View style={[s.panel, isPanelCollapsed && { height: COLLAPSED_HEIGHT }]}>
 
-        {/* Drag pill */}
-        <View style={s.dragPill} />
+        {/* Drag pill — tap to collapse/expand */}
+        <TouchableOpacity
+          style={s.dragPillWrap}
+          onPress={() => setIsPanelCollapsed(p => !p)}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 40, right: 40 }}
+        >
+          <View style={s.dragPill} />
+          {isPanelCollapsed && (
+            <Text style={s.dragPillHint}>▲ Customize</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Hide everything when collapsed */}
+        {!isPanelCollapsed && (
+        <>
 
         {/* ── Main tab switcher: Body / Colors / Store ── */}
         <View style={s.mainTabRow}>
@@ -911,6 +934,9 @@ export default function AvatarEditorScreen() {
           </TouchableOpacity>
         </View>
 
+        </>
+        )}
+
       </View>
     </View>
 
@@ -946,10 +972,21 @@ const s = StyleSheet.create({
     shadowRadius: 16,
     elevation: 24,
   },
+  panelCollapsed: {
+    height: 36, // just enough for the pill — replaced dynamically
+  },
+  dragPillWrap: {
+    alignItems: 'center',
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
   dragPill: {
-    width: 36, height: 4, borderRadius: 2,
+    width: 40, height: 4, borderRadius: 2,
     backgroundColor: D.border,
-    alignSelf: 'center', marginBottom: 16,
+  },
+  dragPillHint: {
+    fontSize: 12, fontWeight: '700', color: D.accent,
+    marginTop: 6, letterSpacing: 0.5,
   },
 
   // Main tabs (Body / Colors / Store)
@@ -1056,7 +1093,7 @@ const s = StyleSheet.create({
   // Action bar
   actionBar: {
     flexDirection: 'row', gap: 12,
-    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 120,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 90,
     borderTopWidth: 1, borderTopColor: D.border,
   },
   resetBtn: {

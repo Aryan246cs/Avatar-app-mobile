@@ -92,7 +92,7 @@ export default function ProfileScreen() {
             <Text style={s.statLbl}>Avatars</Text>
           </View>
           <View style={[s.stat, s.statBorder]}>
-            <Text style={s.statVal}>{new Date(profile?.joinedAt).getFullYear()}</Text>
+            <Text style={s.statVal}>{profile?.joinedAt ? new Date(profile.joinedAt).getFullYear() : '—'}</Text>
             <Text style={s.statLbl}>Joined</Text>
           </View>
         </View>
@@ -151,7 +151,7 @@ export default function ProfileScreen() {
         </View>
         <View style={s.infoRow}>
           <Text style={s.infoLabel}>Member since</Text>
-          <Text style={s.infoValue}>{new Date(profile?.joinedAt).toLocaleDateString()}</Text>
+          <Text style={s.infoValue}>{profile?.joinedAt ? new Date(profile.joinedAt).toLocaleDateString() : '—'}</Text>
         </View>
       </View>
 

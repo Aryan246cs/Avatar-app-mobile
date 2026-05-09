@@ -13,55 +13,60 @@ const authHeaders = async () => ({
   Authorization: `Bearer ${await getToken()}`,
 });
 
-// ─── Avatar Config ────────────────────────────────────────────────────────────
-export const loadAvatarConfig = async () => {
-  const res = await fetch(`${getApiUrl()}/avatar/me`, { headers: await authHeaders() });
+// ─── Generic fetch with 401 guard ─────────────────────────────────────────────
+// Returns parsed JSON. If the server returns 401 (expired/invalid token),
+// clears the stored token so the next app launch redirects to login.
+const apiFetch = async (url: string, options?: RequestInit) => {
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    // Token expired or invalid — clear it so index.tsx redirects to login
+    await AsyncStorage.removeItem('auth_token');
+  }
   return res.json();
 };
 
+// ─── Avatar Config ────────────────────────────────────────────────────────────
+export const loadAvatarConfig = async () => {
+  return apiFetch(`${getApiUrl()}/avatar/me`, { headers: await authHeaders() });
+};
+
 export const saveAvatarConfig = async (config: object) => {
-  const res = await fetch(`${getApiUrl()}/avatar/save`, {
+  return apiFetch(`${getApiUrl()}/avatar/save`, {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify(config),
   });
-  return res.json();
 };
 
 // ─── Gallery ──────────────────────────────────────────────────────────────────
 export const loadGallery = async () => {
-  const res = await fetch(`${getApiUrl()}/gallery/me`, { headers: await authHeaders() });
-  return res.json();
+  return apiFetch(`${getApiUrl()}/gallery/me`, { headers: await authHeaders() });
 };
 
 export const saveToGallery = async (item: { name: string; style: string; character: string; imageData: string }) => {
-  const res = await fetch(`${getApiUrl()}/gallery/save`, {
+  return apiFetch(`${getApiUrl()}/gallery/save`, {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify(item),
   });
-  return res.json();
 };
 
 export const deleteFromGallery = async (id: string) => {
-  const res = await fetch(`${getApiUrl()}/gallery/${id}`, {
+  return apiFetch(`${getApiUrl()}/gallery/${id}`, {
     method: 'DELETE',
     headers: await authHeaders(),
   });
-  return res.json();
 };
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 export const loadProfile = async () => {
-  const res = await fetch(`${getApiUrl()}/profile/me`, { headers: await authHeaders() });
-  return res.json();
+  return apiFetch(`${getApiUrl()}/profile/me`, { headers: await authHeaders() });
 };
 
 export const updateProfile = async (data: { username?: string; bio?: string }) => {
-  const res = await fetch(`${getApiUrl()}/profile/update`, {
+  return apiFetch(`${getApiUrl()}/profile/update`, {
     method: 'PUT',
     headers: await authHeaders(),
     body: JSON.stringify(data),
   });
-  return res.json();
 };

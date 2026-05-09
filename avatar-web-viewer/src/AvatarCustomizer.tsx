@@ -323,6 +323,8 @@ export function AvatarCustomizer({
   const maskAccRef  = useRef<THREE.Group|null>(null);
   const suitRef     = useRef<THREE.Group|null>(null);
   const shoesAccRef = useRef<THREE.Group|null>(null);
+  // Track which scene object is currently mounted so we can detect body-type changes
+  const loadedSceneRef = useRef<THREE.Object3D | null>(null);
 
   const gender = getGender(bodyType);
 
@@ -336,6 +338,8 @@ export function AvatarCustomizer({
 
   useEffect(() => {
     if (!scene || !bodyRef.current) return;
+
+    // Build the new cloned scene with all textures/materials applied
     const cloned = scene.clone();
     cloned.traverse((node: THREE.Object3D) => {
       if (!(node instanceof THREE.Mesh) || !node.material) return;
@@ -350,19 +354,74 @@ export function AvatarCustomizer({
         mat.map=eyesTex; mat.transparent=false; mat.depthWrite=true; mat.needsUpdate=true;
         node.visible=true; node.frustumCulled=false; node.renderOrder=1;
       }
-      // Apply skin color to all skin meshes (everything except clothes, hair, eyes, teeth)
       const clothingMeshes = ['Top','Pants','Shoes','Hair','Eyes','Teeth'];
       if (skinColor && !clothingMeshes.includes(n) && !n.includes('Outfit') && !n.includes('Footwear')) {
         mat.color.set(new THREE.Color(skinColor));
         mat.needsUpdate=true;
       }
-      // Hide Body (hands/arms/torso skin) for face mode
       if (n === 'Body' && cameraMode === 'face') {
         node.visible = false;
       }
     });
-    bodyRef.current.clear();
-    bodyRef.current.add(cloned);
+
+    const isSameBody = loadedSceneRef.current === scene;
+    const existingAvatar = bodyRef.current.getObjectByName('__avatar_mesh__');
+    const existingArmature = existingAvatar?.getObjectByName('Armature') as THREE.Object3D | undefined;
+
+    if (isSameBody && existingArmature) {
+      // ── Same GLB, only textures/colors changed — update in-place ──────────
+      // This preserves all accessory children attached to the Armature.
+      const newArmature = cloned.getObjectByName('Armature');
+      if (newArmature) {
+        newArmature.traverse((newNode: THREE.Object3D) => {
+          if (!(newNode instanceof THREE.Mesh)) return;
+          const oldNode = existingArmature.getObjectByName(newNode.name) as THREE.Mesh | undefined;
+          if (oldNode instanceof THREE.Mesh) {
+            oldNode.material = newNode.material;
+            oldNode.visible = newNode.visible;
+            oldNode.frustumCulled = newNode.frustumCulled;
+            oldNode.renderOrder = newNode.renderOrder;
+          }
+        });
+      }
+    } else {
+      // ── Different GLB (body type changed) — full replace ──────────────────
+      // First, rescue any accessory objects from the old Armature so they
+      // survive the swap and get re-attached to the new Armature.
+      const savedAccessories: THREE.Object3D[] = [];
+      if (existingArmature) {
+        // Build a set of node names that belong to the NEW GLB
+        const newGlbNames = new Set<string>();
+        cloned.traverse((n: THREE.Object3D) => { if (n.name) newGlbNames.add(n.name); });
+
+        // Any child of the old Armature whose name is NOT in the new GLB = accessory
+        existingArmature.children.slice().forEach((child) => {
+          if (child.name && !newGlbNames.has(child.name)) {
+            existingArmature.remove(child);
+            savedAccessories.push(child);
+          }
+        });
+      }
+
+      // Remove and dispose the old avatar
+      if (existingAvatar) {
+        existingAvatar.parent?.remove(existingAvatar);
+        disposeObject(existingAvatar);
+      }
+
+      // Add the new avatar
+      cloned.name = '__avatar_mesh__';
+      loadedSceneRef.current = scene;
+      bodyRef.current.add(cloned);
+
+      // Re-attach rescued accessories to the new Armature
+      if (savedAccessories.length > 0) {
+        const newArm = cloned.getObjectByName('Armature');
+        if (newArm) {
+          savedAccessories.forEach((child) => newArm.add(child));
+        }
+      }
+    }
   }, [scene, topTex, pantsTex, shoesTex, eyesTex, hairTex, visibleParts, bodyType, skinColor, cameraMode]);
 
   // ── Resolve accessory paths (null = not selected = don't mount loader) ─────

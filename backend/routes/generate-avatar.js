@@ -26,108 +26,137 @@ const BG_MAP = {
 
 // ─── PROMPT BUILDER ───────────────────────────────────────────────────────────
 function buildPrompt({ style, character, traits, mood, background }) {
-  const styleStr  = STYLE_MAP[style]  ?? style;
-  const moodStr   = MOOD_MAP[mood]    ?? mood;
-  const bgStr     = BG_MAP[background] ?? background;
-  const traitStr  = traits?.length ? traits.join(', ') : '';
+  const styleStr = STYLE_MAP[style]  ?? style;
+  const moodStr  = MOOD_MAP[mood]    ?? mood;
+  const bgStr    = BG_MAP[background] ?? background;
+  const traitStr = traits?.length ? traits.join(', ') : '';
 
   const positive = [
-    'masterpiece, best quality, ultra detailed, NFT art, trending on artstation',
-    'highly detailed face, perfect anatomy, centered portrait, symmetrical composition',
-    'sharp focus, 8k resolution, professional illustration, single character',
-    '(portrait:1.3), (face focus:1.2), upper body',
-    styleStr,
-    character,
-    traitStr,
+    `A highly detailed ${styleStr} portrait of ${character || 'a character'}`,
+    traitStr ? `wearing ${traitStr}` : '',
     moodStr,
     bgStr,
-    'intricate details, cinematic lighting, no text, no watermark',
+    'centered composition, upper body shot, sharp focus, professional digital art, 8k resolution',
+    'intricate details, no text, no watermark, single character',
   ].filter(Boolean).join(', ');
 
   const negative = [
     'low quality, blurry, bad anatomy, extra limbs, distorted face',
     'watermark, text, logo, cropped, worst quality, deformed, ugly',
     'out of frame, duplicate, mutated hands, missing fingers',
-    'multiple people, crowd, abstract, incoherent, noisy, grainy',
-    'bad proportions, disfigured, poorly drawn face, mutation',
+    'multiple people, crowd, noisy, grainy, bad proportions',
   ].join(', ');
 
   return { positive, negative };
 }
 
-// ─── PARAM MAPPERS ────────────────────────────────────────────────────────────
-const mapCreativity = (v) => 8 + Math.round((v / 100) * 4);   // 8–12 (higher floor)
-const mapDetail     = (v) => 35 + Math.round((v / 100) * 15); // 35–50 (never go below 35)
+// ─── HUGGINGFACE (FLUX.1-schnell) ─────────────────────────────────────────────
+// Free tier, no negative prompt support, 4-step distilled model
+async function generateWithHuggingFace({ positive, seed }) {
+  const apiKey = process.env.HUGGINGFACE_API_KEY;
+  if (!apiKey || apiKey === 'your_huggingface_api_key_here') {
+    throw new Error('HUGGINGFACE_API_KEY not configured in backend/.env');
+  }
+
+  const res = await fetch(
+    'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'image/png',
+      },
+      body: JSON.stringify({
+        inputs: positive,
+        parameters: {
+          num_inference_steps: 4,
+          width: 768,
+          height: 768,
+          ...(seed ? { seed: parseInt(seed, 10) } : {}),
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    if (res.status === 503) throw new Error('Model is loading, please retry in ~20 seconds.');
+    throw new Error(`HuggingFace error ${res.status}: ${errText}`);
+  }
+
+  const buffer = await res.arrayBuffer();
+  return Buffer.from(buffer).toString('base64');
+}
+
+// ─── STABILITY AI (Stable Diffusion 3.5) ─────────────────────────────────────
+// Paid (25 free credits on signup), full negative prompt + CFG support
+// Much more controllable output, better anatomy, proper avatar quality
+async function generateWithStability({ positive, negative, seed }) {
+  const apiKey = process.env.STABILITY_API_KEY;
+  if (!apiKey || apiKey === 'your_stability_api_key_here') {
+    throw new Error('STABILITY_API_KEY not configured in backend/.env — get a free key at https://platform.stability.ai');
+  }
+
+  const formData = new FormData();
+  formData.append('prompt', positive);
+  formData.append('negative_prompt', negative);
+  formData.append('output_format', 'png');
+  formData.append('width', '768');
+  formData.append('height', '768');
+  formData.append('cfg_scale', '7');          // How closely to follow the prompt (1-10)
+  formData.append('steps', '30');             // More steps = more detail (20-50)
+  formData.append('style_preset', 'digital-art'); // Built-in style boost
+  if (seed) formData.append('seed', String(parseInt(seed, 10)));
+
+  const res = await fetch(
+    'https://api.stability.ai/v2beta/stable-image/generate/core',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'image/*',
+      },
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    if (res.status === 402) throw new Error('Stability AI: out of credits. Top up at platform.stability.ai');
+    if (res.status === 401) throw new Error('Stability AI: invalid API key. Check STABILITY_API_KEY in backend/.env');
+    throw new Error(`Stability AI error ${res.status}: ${errText}`);
+  }
+
+  const buffer = await res.arrayBuffer();
+  return Buffer.from(buffer).toString('base64');
+}
 
 // ─── POST /api/generate-avatar ────────────────────────────────────────────────
 router.post('/', async (req, res) => {
-  const { style, character, traits, mood, background, seed, creativity = 65, detail = 70 } = req.body;
+  const { style, character, traits, mood, background, seed } = req.body;
 
   if (!character?.trim()) {
     return res.status(400).json({ success: false, message: 'character is required' });
   }
 
-  const apiKey = process.env.HUGGINGFACE_API_KEY;
-  if (!apiKey || apiKey === 'your_huggingface_api_key_here') {
-    return res.status(500).json({ success: false, message: 'HUGGINGFACE_API_KEY not configured in backend/.env' });
-  }
-
+  const provider = (process.env.IMAGE_PROVIDER || 'huggingface').toLowerCase();
   const { positive, negative } = buildPrompt({ style, character, traits, mood, background });
-  const guidance_scale       = mapCreativity(creativity);
-  const num_inference_steps  = mapDetail(detail);
-
-  const body = {
-    inputs: positive,
-    parameters: {
-      negative_prompt: negative,
-      guidance_scale,
-      num_inference_steps,
-      width: 512,
-      height: 512,
-      ...(seed ? { seed: parseInt(seed, 10) } : {}),
-    },
-  };
 
   try {
-    const hfRes = await fetch(
-      'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'image/png',
-        },
-        body: JSON.stringify({
-          inputs: positive,
-          parameters: {
-            negative_prompt: negative,
-            guidance_scale,
-            num_inference_steps,
-            width: 512,
-            height: 512,
-            ...(seed ? { seed: parseInt(seed, 10) } : {}),
-          },
-        }),
-      }
-    );
+    let base64;
 
-    if (!hfRes.ok) {
-      const errText = await hfRes.text();
-      console.error('HF error:', hfRes.status, errText);
-      if (hfRes.status === 503) {
-        return res.status(503).json({ success: false, message: 'Model is loading, please retry in ~20 seconds.' });
-      }
-      return res.status(hfRes.status).json({ success: false, message: `HuggingFace error: ${errText}` });
+    if (provider === 'stability') {
+      base64 = await generateWithStability({ positive, negative, seed });
+    } else {
+      base64 = await generateWithHuggingFace({ positive, seed });
     }
 
-    const arrayBuffer = await hfRes.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-    return res.json({ success: true, image: base64, prompt: positive });
+    return res.json({ success: true, image: base64, prompt: positive, provider });
 
   } catch (err) {
-    console.error('generate-avatar error:', err);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error('generate-avatar error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
