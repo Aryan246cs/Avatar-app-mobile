@@ -1,17 +1,18 @@
+import { saveToGallery } from '@/utils/api';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { Circle, Line, Path, Rect, Svg } from 'react-native-svg';
 import { saveAvatarToGallery } from './export-avatar';
