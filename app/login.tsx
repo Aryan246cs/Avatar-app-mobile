@@ -12,14 +12,14 @@ import {
 const { height: SH } = Dimensions.get('window');
 
 const T = {
-  cream:    '#EBCCAD',
-  orange:   '#EC802B',
-  yellow:   '#EDC55B',
-  teal:     '#66BCB4',
-  dark:     '#2C1A0E',
+  cream:    '#DCE1E7',
+  orange:   '#3157D5',
+  yellow:   '#A8B9F3',
+  teal:     '#253C69',
+  dark:     '#17212B',
   white:    '#FFFFFF',
-  offwhite: '#FDF8F3',
-  muted:    '#9A7A5A',
+  offwhite: '#F4F5F7',
+  muted:    '#687482',
 };
 
 const getApiUrl = () => {
@@ -39,8 +39,8 @@ export default function LoginScreen() {
       Alert.alert('Missing fields', 'Please enter both email and password');
       return;
     }
-    if (!isLogin && password.length < 6) {
-      Alert.alert('Weak password', 'Password must be at least 6 characters');
+    if (!isLogin && (password.length < 10 || password.length > 128)) {
+      Alert.alert('Weak password', 'Password must be between 10 and 128 characters');
       return;
     }
     setLoading(true);
@@ -77,7 +77,7 @@ export default function LoginScreen() {
       >
         {/* Hero */}
         <LinearGradient
-          colors={['#EC802B', '#EDC55B']}
+          colors={['#172B4D', '#3157D5']}
           style={s.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}

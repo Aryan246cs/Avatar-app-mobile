@@ -28,22 +28,23 @@ interface SceneProps {
   };
   skinColor?: string | null;
   cameraMode?: 'full' | 'upper' | 'face';
+  theme?: 'light' | 'dark';
 }
 
 export function Scene({
   bodyType, topTexture, pantsTexture, shoesTexture,
   eyesTexture, hairTexture, visibleParts, accessories, accessoryColors,
-  skinColor, cameraMode = 'full',
+  skinColor, cameraMode = 'full', theme = 'light',
 }: SceneProps) {
   const cam = CAMERA_PRESETS[cameraMode];
 
   return (
-    <div style={{ width: '100%', height: '100vh', background: '#FDF8F3' }}>
-      <Canvas camera={{ position: cam.position, fov: cam.fov }} shadows>
-        <ambientLight intensity={0.7} />
+    <div style={{ width: '100%', height: '100vh', background: `${theme === 'dark' ? 'linear-gradient(135deg, rgba(10,17,27,.78), rgba(28,43,69,.66))' : 'linear-gradient(135deg, rgba(13,22,38,.14), rgba(13,22,38,.02))'}, url('/background_Image_Webviewer.png') center / cover no-repeat` }}>
+      <Canvas camera={{ position: cam.position, fov: cam.fov }} shadows gl={{ alpha: true, antialias: true }}>
+        <ambientLight intensity={0.85} />
         <directionalLight
           position={[5, 5, 5]}
-          intensity={0.8}
+          intensity={1.15}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}

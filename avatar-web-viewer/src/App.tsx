@@ -31,6 +31,7 @@ function App() {
   });
   const [skinColor, setSkinColor] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<'full' | 'upper' | 'face'>('full');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -65,6 +66,7 @@ function App() {
           case 'SET_SHOES_COLOR':  setAccessoryColors(p => ({ ...p, shoes:    data.value === 'default' ? null : data.value })); break;
           case 'SET_SKIN_COLOR':   setSkinColor(data.value === 'default' ? null : data.value); break;
           case 'SET_CAMERA_MODE':  setCameraMode(data.value as 'full' | 'upper' | 'face'); break;
+          case 'SET_THEME': if (data.value === 'light' || data.value === 'dark') setTheme(data.value); break;
           default: console.warn('Unknown message type:', data.type);
         }
       } catch (error) {
@@ -93,6 +95,7 @@ function App() {
         accessoryColors={accessoryColors}
         skinColor={skinColor}
         cameraMode={cameraMode}
+        theme={theme}
       />
     </div>
   );

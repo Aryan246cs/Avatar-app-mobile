@@ -2,16 +2,9 @@ import { Tabs } from 'expo-router';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
+import { AppearanceProvider, useAppearance } from '@/constants/appearance';
 
-const D = {
-  bg:     '#FDF8F3',
-  panel:  '#FFFFFF',
-  card:   '#FDF0E4',
-  border: '#EBCCAD',
-  accent: '#EC802B',
-  muted:  '#9A7A5A',
-  purple: '#66BCB4',
-};
+const D = { muted: '#687482' };
 
 function HomeIcon({ color }: { color: string }) {
   return (
@@ -64,6 +57,7 @@ const HIDDEN_ROUTES = new Set(['item-selection']);
 
 function FloatingTabBar({ state, descriptors, emitter, navigateToTab }: any) {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppearance();
 
   // Only show routes that have a tabBarIcon and aren't hidden
   const visibleRoutes = state.routes.filter((route: any) => {
@@ -74,7 +68,7 @@ function FloatingTabBar({ state, descriptors, emitter, navigateToTab }: any) {
 
   return (
     <View style={[tb.wrapper, { bottom: insets.bottom + 16 }]}>
-      <View style={tb.pill}>
+      <View style={[tb.pill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {visibleRoutes.map((route: any) => {
           const { options } = descriptors[route.key];
           const focused = state.index === state.routes.indexOf(route);
@@ -84,7 +78,7 @@ function FloatingTabBar({ state, descriptors, emitter, navigateToTab }: any) {
             if (!focused && !event.defaultPrevented) navigateToTab(route.key);
           };
 
-          const iconColor: string = focused ? '#EC802B' : D.muted;
+          const iconColor: string = focused ? colors.accent : colors.muted;
 
           return (
             <TouchableOpacity
@@ -93,7 +87,7 @@ function FloatingTabBar({ state, descriptors, emitter, navigateToTab }: any) {
               onPress={onPress}
               activeOpacity={0.7}
             >
-              <View style={[tb.iconWrap, focused && tb.iconWrapActive]}>
+              <View style={[tb.iconWrap, focused && { backgroundColor: colors.accent + '20' }]}>
                 {options.tabBarIcon?.({ color: iconColor, focused, size: 22 })}
               </View>
             </TouchableOpacity>
@@ -119,8 +113,8 @@ const tb = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1.5,
-    borderColor: '#EBCCAD',
-    shadowColor: '#EC802B',
+    borderColor: '#DCE1E7',
+    shadowColor: '#172B4D',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -134,6 +128,7 @@ const tb = StyleSheet.create({
 
 export default function MainLayout() {
   return (
+    <AppearanceProvider>
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{ headerShown: false }}
@@ -160,5 +155,6 @@ export default function MainLayout() {
       />
       <Tabs.Screen name="item-selection" options={{ href: null }} />
     </Tabs>
+    </AppearanceProvider>
   );
 }

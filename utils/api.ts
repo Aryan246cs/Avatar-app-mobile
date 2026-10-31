@@ -2,8 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 export const getApiUrl = () => {
+  const configuredUrl = Constants.expoConfig?.extra?.apiUrl;
+  if (typeof configuredUrl === 'string' && configuredUrl.trim()) return configuredUrl.replace(/\/$/, '');
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return host ? `http://${host}:5000/api` : 'http://192.168.100.97:5000/api';
+  if (host) return `http://${host}:5000/api`;
+  return 'http://localhost:5000/api';
 };
 
 const getToken = async () => AsyncStorage.getItem('auth_token');
@@ -63,10 +66,22 @@ export const loadProfile = async () => {
   return apiFetch(`${getApiUrl()}/profile/me`, { headers: await authHeaders() });
 };
 
-export const updateProfile = async (data: { username?: string; bio?: string }) => {
+export const updateProfile = async (data: { username?: string; displayName?: string; pronouns?: string; bio?: string; profileImage?: string }) => {
   return apiFetch(`${getApiUrl()}/profile/update`, {
     method: 'PUT',
     headers: await authHeaders(),
     body: JSON.stringify(data),
+  });
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+  return apiFetch(`${getApiUrl()}/auth/change-password`, {
+    method: 'POST', headers: await authHeaders(), body: JSON.stringify({ currentPassword, newPassword }),
+  });
+};
+
+export const generateAvatar = async (params: object) => {
+  return apiFetch(`${getApiUrl()}/generate-avatar`, {
+    method: 'POST', headers: await authHeaders(), body: JSON.stringify(params),
   });
 };

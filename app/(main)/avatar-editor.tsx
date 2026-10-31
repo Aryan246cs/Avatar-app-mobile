@@ -1,7 +1,7 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { saveAvatarConfig } from '@/utils/api';
 import Constants from 'expo-constants';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Alert, Dimensions, Modal, ScrollView, StyleSheet,
     Text, TextInput, TouchableOpacity, View, type ViewInstance
@@ -9,6 +9,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import type { ComponentClass } from 'react';
+import { useAppearance } from '@/constants/appearance';
 
 const CompatibleWebView = WebView as ComponentClass<any>;
 
@@ -19,23 +20,24 @@ const PANEL_HEIGHT  = SCREEN_HEIGHT * 0.58;
 
 // Design tokens — warm vibrant theme
 const D = {
-  bg:       '#FDF8F3',
+  bg:       '#F4F5F7',
   panel:    '#FFFFFF',
-  card:     '#FDF0E4',
-  border:   '#EBCCAD',
-  accent:   '#EC802B',
-  muted:    '#9A7A5A',
-  text:     '#2C1A0E',
-  subtext:  '#6B4A2A',
-  teal:     '#66BCB4',
-  yellow:   '#EDC55B',
-  cream:    '#EBCCAD',
+  card:     '#EDF1F6',
+  border:   '#DCE1E7',
+  accent:   '#3157D5',
+  muted:    '#687482',
+  text:     '#17212B',
+  subtext:  '#475467',
+  teal:     '#2B506F',
+  yellow:   '#A8B9F3',
+  cream:    '#DCE1E7',
 };
 
 const getAvatarViewerUrl = () => {
-  if (!__DEV__) return 'https://your-actual-vercel-url.vercel.app';
+  const configuredUrl = Constants.expoConfig?.extra?.avatarViewerUrl;
+  if (typeof configuredUrl === 'string' && configuredUrl.startsWith('https://')) return configuredUrl;
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return host ? `http://${host}:5174` : 'http://192.168.100.97:5174';
+  return __DEV__ && host ? `http://${host}:5174` : null;
 };
 
 // ─── TYPES & DATA (unchanged from original) ───────────────────────────────────
@@ -435,6 +437,7 @@ function ColorPickerModal({
 
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function AvatarEditorScreen() {
+  const { mode, colors } = useAppearance();
   const insets = useSafeAreaInsets();
   // Tab bar is: insets.bottom + 16 (margin) + ~56 (pill height) = tab bar top edge
   // Add 20px gap so the drag pill sits clearly above it
@@ -471,9 +474,6 @@ export default function AvatarEditorScreen() {
   // Skin color
   const [skinColor, setSkinColorState] = useState<string | null>(null);
 
-  // Camera mode
-  const [cameraMode, setCameraModeState] = useState<'full' | 'upper' | 'face'>('full');
-
   // Panel collapsed state
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
 
@@ -492,14 +492,13 @@ export default function AvatarEditorScreen() {
   const sendSelection = (type: string, selection: number | null) =>
     webViewRef.current?.postMessage(JSON.stringify({ type, selection }));
 
+  useEffect(() => {
+    webViewRef.current?.postMessage(JSON.stringify({ type: 'SET_THEME', value: mode }));
+  }, [mode]);
+
   const handleSkinColor = (hex: string) => {
     setSkinColorState(hex);
     send('SET_SKIN_COLOR', hex);
-  };
-
-  const handleCameraMode = (mode: 'full' | 'upper' | 'face') => {
-    setCameraModeState(mode);
-    send('SET_CAMERA_MODE', mode);
   };
 
   const handleBodySelect = (bodyType: BodyType) => {
@@ -579,18 +578,19 @@ export default function AvatarEditorScreen() {
   // ── RENDER ─────────────────────────────────────────────────────────────
   return (
     <>
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: colors.background }]}>
 
       {/* ── TOP: Avatar viewer (fills remaining space above panel) ── */}
       <View style={s.viewerWrap}>
-        {__DEV__ ? (
+        {avatarViewerUrl ? (
           <CompatibleWebView
             ref={webViewRef}
             source={{ uri: avatarViewerUrl }}
             style={s.webView}
             javaScriptEnabled domStorageEnabled startInLoadingState
+            onLoadEnd={() => webViewRef.current?.postMessage(JSON.stringify({ type: 'SET_THEME', value: mode }))}
             renderLoading={() => (
-              <View style={s.loaderBox}>
+              <View style={[s.loaderBox, { backgroundColor: colors.background }]}>
                 <Text style={{ color: D.muted }}>Loading avatar…</Text>
               </View>
             )}
@@ -598,14 +598,18 @@ export default function AvatarEditorScreen() {
             onHttpError={(e: { nativeEvent: { statusCode: number } }) => { console.log('WebView HTTP error:', e.nativeEvent.statusCode); }}
           />
         ) : (
-          <View style={s.loaderBox}>
-            <IconSymbol name="person.fill" size={100} color={D.muted} />
+          <View style={[s.loaderBox, { backgroundColor: colors.background }]}>
+            <View style={{ alignItems: 'center', paddingHorizontal: 24 }}>
+              <IconSymbol name="person.fill" size={72} color={colors.muted} />
+              <Text style={{ color: colors.text, fontWeight: '700', marginTop: 12 }}>3D viewer is not configured</Text>
+              <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 6 }}>Set extra.avatarViewerUrl in app.json to your deployed viewer URL.</Text>
+            </View>
           </View>
         )}
       </View>
 
       {/* ── BOTTOM: Control panel ── */}
-      <View style={[s.panel, isPanelCollapsed && { height: COLLAPSED_HEIGHT }]}>
+      <View style={[s.panel, { backgroundColor: colors.surface }, isPanelCollapsed && { height: COLLAPSED_HEIGHT }]}>
 
         {/* Drag pill — tap to collapse/expand */}
         <TouchableOpacity
@@ -625,7 +629,7 @@ export default function AvatarEditorScreen() {
         <>
 
         {/* ── Main tab switcher: Body / Colors / Store ── */}
-        <View style={s.mainTabRow}>
+          <View style={[s.mainTabRow, { backgroundColor: colors.elevated }]}>
           {(['body', 'colors', 'store'] as const).map(tab => (
             <TouchableOpacity
               key={tab}
@@ -633,7 +637,7 @@ export default function AvatarEditorScreen() {
               style={[s.mainTab, mainTab === tab && s.mainTabActive]}
               activeOpacity={0.8}
             >
-              <Text style={[s.mainTabText, mainTab === tab && s.mainTabTextActive]}>
+              <Text style={[s.mainTabText, { color: mainTab === tab ? '#FFFFFF' : colors.muted }, mainTab === tab && s.mainTabTextActive]}>
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Text>
             </TouchableOpacity>
@@ -651,7 +655,7 @@ export default function AvatarEditorScreen() {
           {mainTab === 'body' && (
             <View>
               {/* Gender toggle */}
-              <Text style={s.sectionLabel}>Gender</Text>
+              <Text style={[s.sectionLabel, { color: colors.muted }]}>Gender</Text>
               <View style={s.genderRow}>
                 {(['male', 'female'] as const).map(g => (
                   <TouchableOpacity
@@ -673,7 +677,7 @@ export default function AvatarEditorScreen() {
               </View>
 
               {/* Body type grid */}
-              <Text style={s.sectionLabel}>Body Type</Text>
+              <Text style={[s.sectionLabel, { color: colors.muted }]}>Body Type</Text>
               <View style={s.bodyGrid}>
                 {filteredBodyOptions.map(body => (
                   <BodyCard
@@ -691,7 +695,7 @@ export default function AvatarEditorScreen() {
           {mainTab === 'colors' && (
             <View>
               {/* Part selector pills */}
-              <Text style={s.sectionLabel}>Part</Text>
+              <Text style={[s.sectionLabel, { color: colors.muted }]}>Part</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillRow}>
                 {avatarParts.map(p => (
                   <Pill
@@ -704,7 +708,7 @@ export default function AvatarEditorScreen() {
               </ScrollView>
 
               {/* Color swatches */}
-              <Text style={s.sectionLabel}>Color</Text>
+              <Text style={[s.sectionLabel, { color: colors.muted }]}>Color</Text>
               <View style={s.swatchGrid}>
                 {currentColors.map(opt => (
                   <View key={opt.id} style={s.swatchItem}>
@@ -736,7 +740,7 @@ export default function AvatarEditorScreen() {
               </View>
 
               {/* Skin Color */}
-              <Text style={s.sectionLabel}>Skin Tone</Text>
+              <Text style={[s.sectionLabel, { color: colors.muted }]}>Skin Tone</Text>
               <View style={s.swatchGrid}>
                 {[
                   { label: 'Light',   color: '#FDDBB4' },
@@ -815,8 +819,6 @@ export default function AvatarEditorScreen() {
                     <ItemBtn label="2"   active={accessories.hair === 2}    onPress={() => selectHair(2)} />
                     <ItemBtn label="3"   active={accessories.hair === 3}    onPress={() => selectHair(3)} />
                     <ItemBtn label="4"   active={accessories.hair === 4}    onPress={() => selectHair(4)} />
-                    <ItemBtn label="5"   active={accessories.hair === 5}    onPress={() => selectHair(5)} />
-                    <ItemBtn label="6"   active={accessories.hair === 6}    onPress={() => selectHair(6)} />
                   </>
                 )}
                 {/* Mask */}
@@ -854,15 +856,12 @@ export default function AvatarEditorScreen() {
                     <ItemBtn label="OFF" active={accessories.shoes === null} onPress={() => selectShoes(null)} />
                     <ItemBtn label="1"   active={accessories.shoes === 1}    onPress={() => selectShoes(1)} />
                     <ItemBtn label="2"   active={accessories.shoes === 2}    onPress={() => selectShoes(2)} />
-                    {selectedGender === 'male' && (
-                      <ItemBtn label="3" active={accessories.shoes === 3}   onPress={() => selectShoes(3)} />
-                    )}
                   </>
                 )}
               </View>
 
               {/* ── Color palette ── */}
-              <Text style={[s.sectionLabel, { marginTop: 20 }]}>Color</Text>
+              <Text style={[s.sectionLabel, { color: colors.muted, marginTop: 20 }]}>Color</Text>
               <View style={s.swatchGrid}>
                 {/* Default swatch */}
                 <View style={s.swatchItem}>
@@ -1040,7 +1039,7 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1.5, borderColor: D.border, gap: 6,
   },
-  bodyCardActive:  { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  bodyCardActive:  { borderColor: D.accent, backgroundColor: '#E6ECFF' },
   bodyCardLabel:   { fontSize: 10, fontWeight: '600' },
 
   // Pills (part selector / accessory category)
@@ -1080,7 +1079,7 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: D.border,
     minWidth: 64, alignItems: 'center',
   },
-  itemBtnActive: { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  itemBtnActive: { borderColor: D.accent, backgroundColor: '#E6ECFF' },
   itemBtnText:   { fontSize: 14, fontWeight: '700' },
 
   // Custom color swatch button

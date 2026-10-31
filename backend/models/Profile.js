@@ -13,11 +13,14 @@ const profileSchema = new mongoose.Schema({
     maxlength: 30,
     default: '',
   },
+  displayName: { type: String, trim: true, maxlength: 50, default: '' },
+  pronouns: { type: String, trim: true, maxlength: 32, default: '' },
   bio: {
     type: String,
     maxlength: 160,
     default: '',
   },
+  profileImage: { type: String, maxlength: 3_800_000, default: '' },
   avatarCount: { type: Number, default: 0 },
 }, { timestamps: true });
 

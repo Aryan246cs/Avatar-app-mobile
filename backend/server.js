@@ -15,11 +15,23 @@ const profileRoutes        = require('./routes/profile');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || /change-this|placeholder|your-secret/i.test(process.env.JWT_SECRET)) {
+  throw new Error('JWT_SECRET must be a private random string of at least 32 characters. Set it in backend/.env.');
+}
 
 // Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+  });
+  next();
+});
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(value => value.trim()) : true, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.use(express.json({ limit: '5mb', strict: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -33,6 +45,8 @@ app.get('/', (req, res) => {
   res.json({ message: 'Avatar App Backend is running!' });
 });
 
+if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI is required. Set it in backend/.env.');
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
@@ -44,6 +58,7 @@ mongoose.connect(process.env.MONGODB_URI)
   })
   .catch((error) => {
     console.error('❌ MongoDB connection error:', error);
+    process.exit(1);
   });
 
 // Handle unhandled promise rejections

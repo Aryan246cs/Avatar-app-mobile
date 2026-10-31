@@ -155,7 +155,7 @@ Avatar-app-mobile/
 │   │   ├── User.js                 # Auth model
 │   │   ├── AvatarConfig.js         # Saved 3D avatar configuration
 │   │   ├── Gallery.js              # AI-generated image records
-│   │   └── Profile.js              # User profile (username, bio)
+│   │   └── Profile.js              # User details and uploaded profile photo
 │   └── routes/
 │       ├── auth.js                 # POST /register, POST /login
 │       ├── avatar.js               # GET + POST avatar config
@@ -171,7 +171,6 @@ Avatar-app-mobile/
 │   │   ├── textures.ts             # Color texture generation
 │   │   └── config/
 │   │       ├── anchors.ts          # Accessory bone/position anchors
-│   │       ├── items.ts            # Item catalog definitions
 │   │       └── applyAnchor.ts      # Anchor application logic
 │   └── public/
 │       ├── avatars/                # 8 body GLB files
@@ -244,7 +243,7 @@ Scan the QR code with **Expo Go** on your phone. Phone and PC must be on the sam
 
 1. Open the app → Login screen appears
 2. Tap **Sign Up** tab
-3. Enter email + password (min 6 characters)
+3. Enter email + password (10–128 characters)
 4. Tap **Create Account** → logged in automatically
 
 ---
@@ -257,15 +256,24 @@ Scan the QR code with **Expo Go** on your phone. Phone and PC must be on the sam
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/avatar-app
 JWT_SECRET=your-secret-key-change-this-in-production
-HUGGINGFACE_API_KEY=hf_your_key_here
+IMAGE_PROVIDER=cloudflare
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+CLOUDFLARE_API_TOKEN=your_cloudflare_workers_ai_token
 ```
+
+Generate a private signing secret with `openssl rand -hex 32` and use its output for `JWT_SECRET`. The backend refuses to start with the example placeholder. Keep real credentials out of source control. Image generation requires a logged-in account and is limited to 12 requests per account per hour.
+
+For a release build, deploy `backend/` and `avatar-web-viewer/`, then set `expo.extra.apiUrl` and `expo.extra.avatarViewerUrl` in `app.json` to their HTTPS URLs. During Expo development, the app discovers the computer running Expo automatically.
 
 | Variable | Description |
 |---|---|
 | `PORT` | Express server port |
 | `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | Secret for signing JWT tokens |
-| `HUGGINGFACE_API_KEY` | From [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) — needs "Make calls to Inference Providers" permission. Image generation may use provider credits or incur usage charges. |
+| `JWT_SECRET` | Private random secret (at least 32 characters) for signing JWT tokens |
+| `IMAGE_PROVIDER` | `cloudflare` (default), `huggingface`, or `stability` |
+| `CLOUDFLARE_ACCOUNT_ID` | Account ID from the Cloudflare dashboard |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers AI access; keep it server-side in `backend/.env` |
+| `HUGGINGFACE_API_KEY` | Optional legacy provider credential when `IMAGE_PROVIDER=huggingface` |
 
 ---
 
@@ -298,16 +306,19 @@ All endpoints except auth require `Authorization: Bearer <token>` header.
 
 ### User Profile
 
+Profiles store a display name, username, pronouns, bio, and a profile photo selected from the device. Photo uploads accept PNG, JPEG, or WebP up to 2.8 MB.
+
 | Method | Endpoint | Body | Response |
 |---|---|---|---|
-| `GET` | `/api/profile/me` | — | `{ email, username, bio, avatarCount, joinedAt }` |
-| `PUT` | `/api/profile/update` | `{ username?, bio? }` | Updated profile |
+| `GET` | `/api/profile/me` | — | Account and profile details |
+| `PUT` | `/api/profile/update` | `{ username?, displayName?, pronouns?, bio?, profileImage? }` | Updated profile |
+| `POST` | `/api/auth/change-password` | `{ currentPassword, newPassword }` | Password updated |
 
 ### AI Generation
 
 | Method | Endpoint | Body | Response |
 |---|---|---|---|
-| `POST` | `/api/generate-avatar` | `{ style, character, traits, mood, background, seed }` | `{ success, image (base64) }` |
+| `POST` | `/api/generate-avatar` | Authenticated request: `{ style, character, traits, mood, background, seed }` | `{ success, image (base64) }` |
 
 ---
 

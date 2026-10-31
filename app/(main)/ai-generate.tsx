@@ -1,5 +1,4 @@
-import { saveToGallery } from '@/utils/api';
-import Constants from 'expo-constants';
+import { generateAvatar, saveToGallery } from '@/utils/api';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
@@ -16,24 +15,20 @@ import {
 } from 'react-native';
 import { Circle, Line, Path, Rect, Svg } from 'react-native-svg';
 import { saveAvatarToGallery } from './export-avatar';
+import { useAppearance } from '@/constants/appearance';
 
-const { width: SW, height: SH } = Dimensions.get('window');
-
-const getApiUrl = () => {
-  const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return host ? `http://${host}:5000/api` : 'http://192.168.100.97:5000/api';
-};
+const { width: SW } = Dimensions.get('window');
 
 // ─── Theme — matches home page ────────────────────────────────────────────────
 const D = {
-  bg:      '#FDF8F3',
+  bg:      '#F4F5F7',
   panel:   '#FFFFFF',
-  card:    '#FDF0E4',
-  border:  '#EBCCAD',
-  accent:  '#EC802B',
-  muted:   '#9A7A5A',
-  text:    '#2C1A0E',
-  subtext: '#6B4A2A',
+  card:    '#EDF1F6',
+  border:  '#DCE1E7',
+  accent:  '#3157D5',
+  muted:   '#687482',
+  text:    '#17212B',
+  subtext: '#475467',
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -183,28 +178,9 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'background', label: 'Background' },
 ];
 
-const STYLE_MAP: Record<Style2D, string> = {
-  anime:    'anime style, cel shading, vibrant colors, studio ghibli inspired',
-  cartoon:  'cartoon style, bold outlines, flat colors, pixar inspired',
-  nft:      'NFT avatar style, sharp edges, high contrast, stylized lighting',
-  cyberpunk:'cyberpunk, neon lights, futuristic, glowing elements, blade runner aesthetic',
-  fantasy:  'fantasy art, magical, epic lighting, artstation trending',
-};
-const MOOD_MAP: Record<Mood, string> = {
-  dramatic:  'dramatic lighting, high contrast shadows',
-  cinematic: 'cinematic lighting, golden hour, depth of field',
-  soft:      'soft lighting, pastel tones, dreamy atmosphere',
-  neon:      'neon lighting, vibrant glow, electric colors',
-};
-const BG_MAP: Record<BgType, string> = {
-  plain:           'simple clean background',
-  abstract:        'abstract geometric background',
-  futuristic_city: 'futuristic city background, neon skyline',
-  galaxy:          'galaxy background, stars, nebula',
-};
-
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AvatarStudioScreen() {
+  const { mode, colors } = useAppearance();
   const [params, setParams] = useState<GenerateParams>({
     style: 'cyberpunk', character: '', traits: [],
     mood: 'cinematic', background: 'futuristic_city', seed: '',
@@ -257,12 +233,7 @@ export default function AvatarStudioScreen() {
     setGenerating(true);
     setImageUri(null);
     try {
-      const res = await fetch(`${getApiUrl()}/generate-avatar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(merged),
-      });
-      const data = await res.json();
+      const data = await generateAvatar(merged);
       if (data.success && data.image) {
         setImageUri(`data:image/png;base64,${data.image}`);
       } else {
@@ -336,12 +307,12 @@ export default function AvatarStudioScreen() {
   const PREVIEW_SIZE = SW * 0.52;
 
   return (
-    <View style={st.root}>
+    <View style={[st.root, { backgroundColor: colors.background }]}>
       {/* ── Header ── */}
-      <View style={st.header}>
+      <View style={[st.header, { backgroundColor: colors.background }]}>
         <View>
-          <Text style={st.title}>2D Studio</Text>
-          <Text style={st.subtitle}>AI avatar generator</Text>
+          <Text style={[st.title, { color: colors.text }]}>2D Studio</Text>
+          <Text style={[st.subtitle, { color: colors.muted }]}>AI avatar generator</Text>
         </View>
         <TouchableOpacity onPress={randomize} style={st.randomBtn} activeOpacity={0.8}>
           <DiceIcon color={D.subtext} size={15} />
@@ -352,7 +323,7 @@ export default function AvatarStudioScreen() {
       {/* ── Preview — centered ── */}
       <View style={st.previewRow}>
         <TouchableOpacity
-          style={[st.previewBox, { width: PREVIEW_SIZE, height: PREVIEW_SIZE }]}
+          style={[st.previewBox, { width: PREVIEW_SIZE, height: PREVIEW_SIZE, backgroundColor: mode === 'dark' ? colors.elevated : '#FFFFFF', borderColor: colors.border }]}
           activeOpacity={imageUri ? 0.85 : 1}
           onPress={() => imageUri && setFullscreen(true)}
         >
@@ -366,8 +337,8 @@ export default function AvatarStudioScreen() {
             <Image source={{ uri: imageUri }} style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }} contentFit="cover" />
           ) : (
             <View style={st.emptyBox}>
-              <SparkleIcon color={D.muted} size={36} />
-              <Text style={st.emptyText}>Preview</Text>
+              <SparkleIcon color={colors.muted} size={36} />
+              <Text style={[st.emptyText, { color: colors.muted }]}>Preview</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -375,13 +346,13 @@ export default function AvatarStudioScreen() {
         {/* Action buttons — only when image exists */}
         {imageUri && !generating && (
           <View style={st.previewActions}>
-            <TouchableOpacity style={st.actionBtn} onPress={() => setRefineModal(true)} activeOpacity={0.8}>
+            <TouchableOpacity style={[st.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => setRefineModal(true)} activeOpacity={0.8}>
               <RefineIcon color={D.accent} size={15} />
-              <Text style={st.actionBtnText}>Refine</Text>
+              <Text style={[st.actionBtnText, { color: colors.text }]}>Refine</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={st.actionBtn} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
+            <TouchableOpacity style={[st.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleSave} disabled={saving} activeOpacity={0.8}>
               <SaveIcon color={D.accent} size={15} />
-              <Text style={st.actionBtnText}>{saving ? '…' : 'Save'}</Text>
+              <Text style={[st.actionBtnText, { color: colors.text }]}>{saving ? '…' : 'Save'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -390,17 +361,18 @@ export default function AvatarStudioScreen() {
       {/* ── Character input ── */}
       <View style={st.inputRow}>
         <TextInput
-          style={st.charInput}
+          style={[st.charInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
           placeholder="e.g. young woman with dark hair, Indian girl with jewelry…"
           placeholderTextColor={D.muted}
           value={params.character}
           onChangeText={v => set('character', v)}
+          maxLength={500}
           returnKeyType="done"
         />
       </View>
 
       {/* ── 4-tab toggle ── */}
-      <View style={st.tabBar}>
+      <View style={[st.tabBar, { backgroundColor: colors.elevated }]}>
         {TABS.map(tab => (
           <TouchableOpacity
             key={tab.id}
@@ -424,12 +396,12 @@ export default function AvatarStudioScreen() {
               return (
                 <TouchableOpacity
                   key={item.id}
-                  style={[st.styleCard, active && st.styleCardActive]}
+                  style={[st.styleCard, { backgroundColor: mode === 'dark' ? colors.surface : colors.elevated, borderColor: active ? colors.accent : colors.border }, active && st.styleCardActive]}
                   onPress={() => set('style', item.id)}
                   activeOpacity={0.8}
                 >
                   {item.icon(active ? D.accent : D.muted)}
-                  <Text style={[st.styleCardText, active && st.styleCardTextActive]}>{item.label}</Text>
+                  <Text style={[st.styleCardText, { color: active ? colors.accent : colors.muted }, active && st.styleCardTextActive]}>{item.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -441,7 +413,7 @@ export default function AvatarStudioScreen() {
           <View style={st.traitsPanel}>
             <View style={st.traitInputRow}>
               <TextInput
-                style={st.traitInput}
+                style={[st.traitInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                 placeholder="Add a trait…"
                 placeholderTextColor={D.muted}
                 value={traitInput}
@@ -481,11 +453,11 @@ export default function AvatarStudioScreen() {
               return (
                 <TouchableOpacity
                   key={m.id}
-                  style={[st.optionCard, active && st.optionCardActive]}
+                  style={[st.optionCard, { backgroundColor: mode === 'dark' ? colors.surface : colors.elevated, borderColor: active ? colors.accent : colors.border }, active && st.optionCardActive]}
                   onPress={() => set('mood', m.id)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[st.optionCardText, active && st.optionCardTextActive]}>{m.label}</Text>
+                  <Text style={[st.optionCardText, { color: active ? colors.accent : colors.muted }, active && st.optionCardTextActive]}>{m.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -500,11 +472,11 @@ export default function AvatarStudioScreen() {
               return (
                 <TouchableOpacity
                   key={b.id}
-                  style={[st.optionCard, active && st.optionCardActive]}
+                  style={[st.optionCard, { backgroundColor: mode === 'dark' ? colors.surface : colors.elevated, borderColor: active ? colors.accent : colors.border }, active && st.optionCardActive]}
                   onPress={() => set('background', b.id)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[st.optionCardText, active && st.optionCardTextActive]}>{b.label}</Text>
+                  <Text style={[st.optionCardText, { color: active ? colors.accent : colors.muted }, active && st.optionCardTextActive]}>{b.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -650,7 +622,7 @@ const st = StyleSheet.create({
   tab: {
     flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
   },
-  tabActive: { backgroundColor: '#EC802B' },
+  tabActive: { backgroundColor: '#3157D5' },
   tabText:   { fontSize: 12, fontWeight: '600', color: D.muted },
   tabTextActive: { color: '#FFFFFF' },
 
@@ -667,7 +639,7 @@ const st = StyleSheet.create({
     borderWidth: 1.5, borderColor: D.border,
     alignItems: 'center', justifyContent: 'center', gap: 5,
   },
-  styleCardActive:    { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  styleCardActive:    { borderColor: D.accent, backgroundColor: '#E6ECFF' },
   styleCardText:      { fontSize: 10, fontWeight: '700', color: D.muted },
   styleCardTextActive:{ color: D.accent },
 
@@ -708,7 +680,7 @@ const st = StyleSheet.create({
     borderWidth: 1.5, borderColor: D.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  optionCardActive:    { borderColor: D.accent, backgroundColor: '#1f1f1f' },
+  optionCardActive:    { borderColor: D.accent, backgroundColor: '#E6ECFF' },
   optionCardText:      { fontSize: 13, fontWeight: '600', color: D.muted },
   optionCardTextActive:{ color: D.accent },
 
@@ -718,12 +690,12 @@ const st = StyleSheet.create({
   },
   generateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    height: 46, borderRadius: 14, backgroundColor: '#EC802B',
-    shadowColor: '#EC802B', shadowOffset: { width: 0, height: 4 },
+    height: 46, borderRadius: 14, backgroundColor: '#3157D5',
+    shadowColor: '#3157D5', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   generateBtnOff:  { opacity: 0.35, shadowOpacity: 0 },
-  generateBtnText: { color: '#2C1A0E', fontSize: 14, fontWeight: '700' },
+  generateBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 
   // Fullscreen
   fsOverlay: { flex: 1, backgroundColor: '#000000ee', justifyContent: 'center', alignItems: 'center' },

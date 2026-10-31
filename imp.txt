@@ -1,0 +1,13 @@
+for running the app 
+
+cd backend
+npm run dev
+
+cd avatar-web-viewer
+npm run dev
+
+npm run dev
+
+
+userid : aryansrivastava1605@gmail.com
+password : 12345678

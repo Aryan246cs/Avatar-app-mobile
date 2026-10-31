@@ -1,45 +1,33 @@
-import { clearAuthToken } from '@/utils/auth';
+import { useAppearance } from '@/constants/appearance';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import {
-  Alert, Dimensions, Image,
-  ScrollView,
-  StyleSheet, Text, TouchableOpacity, View
-} from 'react-native';
-import Animated, {
-  FadeInDown, FadeInRight
-} from 'react-native-reanimated';
-import { Circle, Path, Svg } from 'react-native-svg';
+import { Image as ExpoImage } from 'expo-image';
+import { loadProfile } from '@/utils/api';
 import { StatusBar } from 'expo-status-bar';
+import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Circle, Path, Svg } from 'react-native-svg';
 
-const { width: SW } = Dimensions.get('window');
+const SCREEN_WIDTH = Dimensions.get('window').width;
+function ProfileGlyph() {
+  return <Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={8} r={4} stroke="#FFFFFF" strokeWidth={1.8}/><Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round"/></Svg>;
+}
 
-const T = {
-  cream:   '#EBCCAD',
-  orange:  '#EC802B',
-  yellow:  '#EDC55B',
-  teal:    '#66BCB4',
-  dark:    '#2C1A0E',
-  white:   '#FFFFFF',
-  offwhite:'#FDF8F3',
-  muted:   '#9A7A5A',
-};
-
-function FeatureCard({ index, label, title, desc, bg, textColor, accentColor, onPress }: {
-  index: number; label: string; title: string; desc: string;
-  bg: string; textColor: string; accentColor: string; onPress: () => void;
+function FeatureCard({ index, eyebrow, title, description, color, icon, onPress }: {
+  index: number; eyebrow: string; title: string; description: string; color: string; icon: string; onPress: () => void;
 }) {
+  const { colors } = useAppearance();
   return (
-    <Animated.View entering={FadeInRight.delay(index * 80).springify().damping(16)}>
-      <TouchableOpacity style={[fc.card, { backgroundColor: bg }]} onPress={onPress} activeOpacity={0.88}>
-        <View style={[fc.labelPill, { backgroundColor: accentColor + '30' }]}>
-          <Text style={[fc.label, { color: accentColor }]}>{label}</Text>
+    <Animated.View entering={FadeInRight.delay(index * 90).springify().damping(16)}>
+      <TouchableOpacity style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress} activeOpacity={0.86}>
+        <View style={[styles.featureIcon, { backgroundColor: color + '18' }]}><Text style={[styles.featureIconText, { color }]}>{icon}</Text></View>
+        <View style={styles.featureCopy}>
+          <Text style={[styles.featureEyebrow, { color: colors.accent }]}>{eyebrow}</Text>
+          <Text style={[styles.featureTitle, { color: colors.text }]}>{title}</Text>
+          <Text style={[styles.featureDescription, { color: colors.muted }]}>{description}</Text>
         </View>
-        <Text style={[fc.title, { color: textColor }]}>{title}</Text>
-        <Text style={[fc.desc, { color: textColor, opacity: 0.75 }]}>{desc}</Text>
-        <View style={[fc.arrow, { backgroundColor: accentColor }]}>
-          <Text style={fc.arrowText}>→</Text>
-        </View>
+        <View style={styles.featureArrow}><Text style={{ color, fontSize: 22, fontWeight: '600' }}>›</Text></View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -47,135 +35,129 @@ function FeatureCard({ index, label, title, desc, bg, textColor, accentColor, on
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { mode, colors } = useAppearance();
+  const [profileImage, setProfileImage] = useState('');
+  const heroGradient = mode === 'dark' ? ['#14213A', '#263D68'] as const : ['#142747', '#3157D5'] as const;
+  const headlineSize = Math.min(38, (SCREEN_WIDTH - 52) / 8.4);
 
-  const handleProfilePress = () => {
-    Alert.alert('Account', 'Manage your account', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await clearAuthToken(); router.replace('/login'); } },
-    ]);
-  };
+  useFocusEffect(useCallback(() => {
+    let current = true;
+    loadProfile().then(data => {
+      if (current && data.success) setProfileImage(data.profile?.profileImage || '');
+    }).catch(() => {});
+    return () => { current = false; };
+  }, []));
 
   return (
-    <View style={s.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StatusBar style="light" />
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-
-        {/* Hero */}
-        <LinearGradient colors={['#EC802B', '#EDC55B']} style={s.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <View style={s.blob1} /><View style={s.blob2} /><View style={s.blob3} />
-
-          <Animated.View entering={FadeInDown.duration(500)} style={s.topBar}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <LinearGradient colors={heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+          <View style={styles.glowTop} /><View style={styles.glowBottom} />
+          <View style={styles.topBar}>
             <View>
-              <Text style={s.appName}>AVATARA</Text>
-              <Text style={s.appSub}>Your Digital Identity</Text>
+              <Text style={styles.wordmark}>AVATARA</Text>
+              <Text style={styles.brandCaption}>CHARACTER STUDIO</Text>
             </View>
-            <TouchableOpacity style={s.profileBtn} onPress={handleProfilePress} activeOpacity={0.8}>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                <Circle cx={12} cy={8} r={4} stroke="rgba(255,255,255,0.9)" strokeWidth={1.8} />
-                <Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.9)" strokeWidth={1.8} strokeLinecap="round" />
-              </Svg>
+            <TouchableOpacity accessibilityLabel="Open profile and settings" style={[styles.profileButton, { borderColor: mode === 'dark' ? '#7C9BFF' : '#AFC2FF' }]} onPress={() => router.push('/(main)/profile')} activeOpacity={0.8}>
+              {profileImage
+                ? <ExpoImage source={{ uri: profileImage }} style={styles.profileImage} contentFit="cover" />
+                : <ProfileGlyph />}
+            </TouchableOpacity>
+          </View>
+
+          <Animated.View entering={FadeInDown.delay(80).duration(450)} style={styles.heroIntro}>
+            <View style={styles.liveLabel}><View style={styles.liveDot}/><Text style={styles.liveLabelText}>YOUR CREATIVE SPACE</Text></View>
+            <Text style={[styles.heroTitle, { fontSize: headlineSize, lineHeight: headlineSize * 1.16 }]}>Build an avatar.{ '\n' }Make it yours.</Text>
+            <Text style={styles.heroSubtitle}>Build a 3D look or generate a portrait that feels like you.</Text>
+            <TouchableOpacity style={styles.heroButton} onPress={() => router.push('/(main)/avatar-editor')} activeOpacity={0.86}>
+              <Text style={styles.heroButtonText}>Start creating</Text><Text style={styles.heroButtonArrow}>↗</Text>
             </TouchableOpacity>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(100).duration(600)} style={s.heroBody}>
-            <View style={s.heroLeft}>
-              <View style={s.tealBadge}><Text style={s.tealBadgeText}>NEW</Text></View>
-              <Text style={s.heroTitle}>Create{'\n'}Your{'\n'}Digital{'\n'}Self.</Text>
-              <Text style={s.heroSub}>3D · 2D · AI</Text>
-            </View>
-            <Image
-              source={require('../../assets/images/hero-avatar-removebg-preview.png')}
-              style={s.heroImage}
-              resizeMode="contain"
-            />
+          <Animated.View entering={FadeInDown.delay(170).duration(600)} style={styles.heroArtwork}>
+            <View style={styles.artHalo}/>
+            <View style={styles.artOrbit}/>
+            <Image source={require('../../assets/images/hero-avatar-removebg-preview.png')} style={styles.heroImage} resizeMode="contain" />
           </Animated.View>
+          <Text style={styles.heroIndex}>01 / CREATE YOUR CHARACTER</Text>
         </LinearGradient>
 
-        {/* Stats */}
-        <Animated.View entering={FadeInDown.delay(150).duration(500)} style={s.statsCard}>
+        <View style={styles.statsGrid}>
           {[
-            { v: '50K+', l: 'Avatars' },
-            { v: '8',    l: 'Body Types' },
-            { v: 'AI',   l: 'Powered' },
-            { v: '∞',    l: 'Styles' },
-          ].map((st, i) => (
-            <View key={i} style={[s.stat, i < 3 && s.statBorder]}>
-              <Text style={s.statVal}>{st.v}</Text>
-              <Text style={s.statLbl}>{st.l}</Text>
-            </View>
+            { value: '38+', label: 'Components', note: 'to mix and match' },
+            { value: '19+', label: 'Apparel pieces', note: 'tops and trousers' },
+            { value: '4+', label: 'Hair styles', note: 'find your look' },
+            { value: '4+', label: 'Shoe styles', note: 'finish the fit' },
+          ].map((item, index) => (
+            <Animated.View key={item.label} entering={FadeInDown.delay(210 + index * 45)} style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.statValue, { color: colors.text }]}>{item.value}</Text>
+              <Text style={[styles.statLabel, { color: colors.text }]}>{item.label}</Text>
+              <Text style={[styles.statNote, { color: colors.muted }]}>{item.note}</Text>
+            </Animated.View>
           ))}
-        </Animated.View>
-
-        {/* Section */}
-        <Animated.View entering={FadeInDown.delay(200).duration(500)} style={s.sectionRow}>
-          <Text style={s.sectionTitle}>Explore</Text>
-          <View style={s.sectionLine} />
-        </Animated.View>
-
-        {/* Cards */}
-        <View style={s.cards}>
-          <FeatureCard index={0} label="3D EDITOR" title="Avatar Playground" desc="Full body customization with accessories, hair, suits and real-time 3D preview." bg={T.teal} textColor={T.white} accentColor={T.yellow} onPress={() => router.push('/(main)/avatar-editor')} />
-          <FeatureCard index={1} label="AI STUDIO" title="AI Generation" desc="Generate NFT-quality portraits with style, mood and trait controls powered by AI." bg={T.orange} textColor={T.white} accentColor={T.yellow} onPress={() => router.push('/(main)/ai-generate')} />
-          <FeatureCard index={2} label="EXPORT" title="Share & Export" desc="Export your creations as high-quality images and share across platforms." bg={T.cream} textColor={T.dark} accentColor={T.orange} onPress={() => router.push('/(main)/export-avatar')} />
         </View>
 
-        <View style={s.footer}>
-          <Text style={s.footerText}>Powered by AI · Designed for identity · © 2025 Avatara</Text>
+        <View style={styles.sectionHeader}>
+          <View><Text style={[styles.sectionKicker, { color: colors.accent }]}>PICK YOUR CANVAS</Text><Text style={[styles.sectionTitle, { color: colors.text }]}>Where to begin</Text></View>
+          <View style={[styles.sectionRule, { backgroundColor: colors.border }]}/>
         </View>
+
+        <View style={styles.featureList}>
+          <FeatureCard index={0} eyebrow="01 · REAL-TIME CUSTOMIZATION" title="Build in 3D" description="Shape your avatar, change the fit, and see every detail live." icon="◈" color={colors.accent} onPress={() => router.push('/(main)/avatar-editor')} />
+          <FeatureCard index={1} eyebrow="02 · AI PORTRAIT STUDIO" title="Generate a portrait" description="Choose a style, set the mood, and create a portrait from your idea." icon="✳" color="#8C63D9" onPress={() => router.push('/(main)/ai-generate')} />
+          <FeatureCard index={2} eyebrow="03 · YOUR CREATION LIBRARY" title="Revisit your work" description="Find your saved portraits and 3D avatar configurations." icon="▧" color="#198C82" onPress={() => router.push('/(main)/export-avatar')} />
+        </View>
+
+        <View style={styles.footer}><Text style={[styles.footerText, { color: colors.muted }]}>Make something unmistakably yours.</Text></View>
       </ScrollView>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: T.offwhite },
-  scroll:  { flex: 1 },
-  content: { paddingBottom: 120 },
-
-  hero: { overflow: 'hidden', paddingBottom: 28 },
-  blob1: { position: 'absolute', top: -60, right: -40, width: 200, height: 200, borderRadius: 100, backgroundColor: T.teal, opacity: 0.2 },
-  blob2: { position: 'absolute', top: 80, left: -20, width: 130, height: 130, borderRadius: 65, backgroundColor: T.cream, opacity: 0.2 },
-  blob3: { position: 'absolute', bottom: 20, right: 50, width: 80, height: 80, borderRadius: 40, backgroundColor: T.dark, opacity: 0.08 },
-
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 24, paddingTop: 58, paddingBottom: 20 },
-  appName: { fontSize: 20, fontWeight: '900', color: T.white, letterSpacing: 4 },
-  appSub: { fontSize: 11, color: 'rgba(255,255,255,0.7)', letterSpacing: 1, marginTop: 2 },
-  profileBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-
-  heroBody: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, gap: 8 },
-  heroLeft: { flex: 1 },
-  heroImage: { width: SW * 0.42, height: SW * 0.55, borderRadius: 20 },
-  avatarPreview: { width: SW * 0.38, height: SW * 0.48, alignItems: 'center', justifyContent: 'center' },
-  avatarPlaceholder: { width: SW * 0.34, height: SW * 0.34, alignItems: 'center', justifyContent: 'center' },
-  ap1: { position: 'absolute', width: SW * 0.34, height: SW * 0.34, borderRadius: SW * 0.17, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  ap2: { position: 'absolute', width: SW * 0.24, height: SW * 0.24, borderRadius: SW * 0.12, backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
-  ap3: { width: SW * 0.14, height: SW * 0.14, borderRadius: SW * 0.07, backgroundColor: 'rgba(255,255,255,0.25)' },
-  tealBadge: { alignSelf: 'flex-start', backgroundColor: T.teal, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 12 },
-  tealBadgeText: { fontSize: 10, fontWeight: '900', color: T.white, letterSpacing: 2 },
-  heroTitle: { fontSize: 38, fontWeight: '900', color: T.white, lineHeight: 44, letterSpacing: -1, marginBottom: 12 },
-  heroSub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '700', letterSpacing: 3 },
-
-  statsCard: { flexDirection: 'row', backgroundColor: T.white, marginHorizontal: 20, marginTop: -1, borderRadius: 20, padding: 18, shadowColor: T.orange, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4 },
-  stat: { flex: 1, alignItems: 'center' },
-  statBorder: { borderRightWidth: 1, borderRightColor: T.cream },
-  statVal: { fontSize: 20, fontWeight: '900', color: T.dark, marginBottom: 2 },
-  statLbl: { fontSize: 10, color: T.muted, fontWeight: '600', letterSpacing: 0.5 },
-
-  sectionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, paddingBottom: 16, gap: 14 },
-  sectionTitle: { fontSize: 22, fontWeight: '900', color: T.dark, letterSpacing: -0.5 },
-  sectionLine: { flex: 1, height: 2.5, backgroundColor: T.yellow, borderRadius: 2 },
-
-  cards: { paddingHorizontal: 20, gap: 14 },
-  footer: { alignItems: 'center', paddingTop: 32, paddingBottom: 8 },
-  footerText: { fontSize: 11, color: T.muted, textAlign: 'center' },
-});
-
-const fc = StyleSheet.create({
-  card: { borderRadius: 24, padding: 24, minHeight: 155, overflow: 'hidden' },
-  labelPill: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 10 },
-  label: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
-  title: { fontSize: 22, fontWeight: '900', marginBottom: 8, letterSpacing: -0.5 },
-  desc: { fontSize: 13, lineHeight: 20, marginBottom: 20 },
-  arrow: { alignSelf: 'flex-start', width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  arrowText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  scrollContent: { paddingBottom: 124 },
+  hero: { paddingTop: 58, paddingBottom: 20, overflow: 'hidden', borderBottomLeftRadius: 34, borderBottomRightRadius: 34 },
+  glowTop: { position: 'absolute', width: 330, height: 330, borderRadius: 165, right: -120, top: 60, backgroundColor: '#8BA6FF', opacity: 0.12 },
+  glowBottom: { position: 'absolute', width: 240, height: 240, borderRadius: 120, left: -100, bottom: 70, backgroundColor: '#45D7C0', opacity: 0.12 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 26 },
+  wordmark: { color: '#FFFFFF', fontSize: 16, fontWeight: '900', letterSpacing: 4 },
+  brandCaption: { color: 'rgba(255,255,255,.56)', fontSize: 9, fontWeight: '700', letterSpacing: 2.3, marginTop: 5 },
+  profileButton: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,.12)', borderWidth: 2, overflow: 'hidden' },
+  profileImage: { width: 44, height: 44, borderRadius: 22 },
+  heroIntro: { paddingHorizontal: 26, paddingTop: 34, zIndex: 2 },
+  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#61DFC6' },
+  liveLabelText: { color: '#B9C9F5', fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  heroTitle: { color: '#FFFFFF', fontSize: 38, fontWeight: '800', lineHeight: 44, letterSpacing: -1.2, maxWidth: SCREEN_WIDTH - 52 },
+  heroSubtitle: { color: 'rgba(255,255,255,.72)', fontSize: 14, lineHeight: 21, maxWidth: 310, marginTop: 12 },
+  heroButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: 174, paddingHorizontal: 17, height: 48, marginTop: 18, backgroundColor: '#FFFFFF', borderRadius: 14 },
+  heroButtonText: { color: '#172B4D', fontSize: 14, fontWeight: '800' },
+  heroButtonArrow: { color: '#3157D5', fontSize: 18, fontWeight: '700' },
+  heroArtwork: { height: 208, marginTop: 12, marginHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
+  artHalo: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(134,163,255,.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,.14)' },
+  artOrbit: { position: 'absolute', width: 270, height: 132, borderRadius: 135, borderWidth: 1, borderColor: 'rgba(255,255,255,.18)', transform: [{ rotate: '-12deg' }] },
+  heroImage: { width: Math.min(SCREEN_WIDTH * 0.66, 260), height: 216, zIndex: 1 },
+  heroIndex: { color: 'rgba(255,255,255,.44)', fontSize: 9, fontWeight: '700', letterSpacing: 1.8, paddingHorizontal: 26, marginTop: 4 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginHorizontal: 20, marginTop: 14 },
+  statCard: { width: (SCREEN_WIDTH - 50) / 2, minHeight: 100, padding: 15, borderWidth: 1, borderRadius: 18 },
+  statValue: { fontSize: 23, fontWeight: '900', letterSpacing: -0.6 },
+  statLabel: { fontSize: 12, fontWeight: '800', marginTop: 2 },
+  statNote: { fontSize: 10, marginTop: 3 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, marginHorizontal: 24, marginTop: 30, marginBottom: 16 },
+  sectionKicker: { fontSize: 9, fontWeight: '800', letterSpacing: 1.8, marginBottom: 5 },
+  sectionTitle: { fontSize: 23, fontWeight: '800', letterSpacing: -0.5 },
+  sectionRule: { flex: 1, height: 1 },
+  featureList: { gap: 10, paddingHorizontal: 20 },
+  featureCard: { minHeight: 118, flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 20, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E4E8EF' },
+  featureIcon: { width: 46, height: 46, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  featureIconText: { fontSize: 24, fontWeight: '600' },
+  featureCopy: { flex: 1 },
+  featureEyebrow: { color: '#788492', fontSize: 8, fontWeight: '800', letterSpacing: 1.05 },
+  featureTitle: { color: '#17212B', fontSize: 16, fontWeight: '800', marginTop: 4 },
+  featureDescription: { color: '#687482', fontSize: 11, lineHeight: 16, marginTop: 3 },
+  featureArrow: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F3F5F8', alignItems: 'center', justifyContent: 'center' },
+  footer: { alignItems: 'center', paddingTop: 28, paddingBottom: 8 },
+  footerText: { fontSize: 11, fontWeight: '500' },
 });

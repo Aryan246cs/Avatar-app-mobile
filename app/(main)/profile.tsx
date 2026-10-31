@@ -1,207 +1,304 @@
-import { loadProfile, updateProfile } from '@/utils/api';
+import { useAppearance } from '@/constants/appearance';
+import { changePassword, loadProfile, updateProfile } from '@/utils/api';
 import { clearAuthToken } from '@/utils/auth';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert, ScrollView, StyleSheet, Text,
-    TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch,
+  Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
-const T = {
-  cream:   '#EBCCAD',
-  orange:  '#EC802B',
-  yellow:  '#EDC55B',
-  teal:    '#66BCB4',
-  dark:    '#2C1A0E',
-  white:   '#FFFFFF',
-  offwhite:'#FDF8F3',
-  muted:   '#9A7A5A',
-  border:  '#EBCCAD',
+type ProfileData = {
+  email: string; username: string; displayName: string; pronouns: string; bio: string;
+  profileImage: string; avatarCount: number; joinedAt?: string;
 };
+
+const MAX_PHOTO_BYTES = 2_800_000;
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [profile, setProfile] = useState<any>(null);
+  const { mode, colors, toggle } = useAppearance();
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
+  const [pronouns, setPronouns] = useState('');
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const applyProfile = (next: ProfileData) => {
+    setProfile(next);
+    setDisplayName(next.displayName || '');
+    setUsername(next.username || '');
+    setPronouns(next.pronouns || '');
+    setBio(next.bio || '');
+  };
 
   useEffect(() => {
     loadProfile().then(data => {
-      if (data.success) {
-        setProfile(data.profile);
-        setUsername(data.profile.username || '');
-        setBio(data.profile.bio || '');
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
+      if (data.success) applyProfile(data.profile);
+    }).catch(() => Alert.alert('Could not load profile', 'Check your connection and try again.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleSave = async () => {
+  const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const data = await updateProfile({ username, bio });
-      if (data.success) {
-        setProfile((p: any) => ({ ...p, username, bio }));
-        setEditing(false);
-        Alert.alert('Saved!', 'Profile updated.');
-      } else {
-        Alert.alert('Error', data.message);
-      }
+      const result = await updateProfile({ displayName, username, pronouns, bio });
+      if (!result.success) return Alert.alert('Could not save changes', result.message || 'Try again.');
+      applyProfile({ ...profile!, displayName: displayName.trim(), username: username.trim(), pronouns: pronouns.trim(), bio: bio.trim() });
+      setEditing(false);
     } catch {
-      Alert.alert('Error', 'Network error');
+      Alert.alert('Could not save changes', 'Check your connection and try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
+  const cancelProfileEdit = () => {
+    if (!profile) return setEditing(false);
+    setDisplayName(profile.displayName || '');
+    setUsername(profile.username || '');
+    setPronouns(profile.pronouns || '');
+    setBio(profile.bio || '');
+    setEditing(false);
+  };
+
+  const openPhotoPicker = async () => {
+    if (uploadingPhoto) return;
+    setUploadingPhoto(true);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Photo access needed', 'Allow photo access to choose a profile picture.');
+        return;
+      }
+      const selection = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1,
+      });
+      if (selection.canceled || !selection.assets[0]) return;
+      const asset = selection.assets[0];
+      const resized = await ImageManipulator.manipulate(asset.uri, { maxWidth: 512, maxHeight: 512 })
+        .resize({ width: 512, height: 512 })
+        .renderAsync();
+      const normalized = await resized.saveAsync({ base64: true, compress: 0.78, format: SaveFormat.JPEG });
+      const base64 = normalized.base64;
+      if (!base64 || Math.floor(base64.length * 0.75) > MAX_PHOTO_BYTES || base64.length > 3_800_000) {
+        Alert.alert('Photo is too large', 'Choose a photo smaller than 2.8 MB.');
+        return;
+      }
+      const result = await updateProfile({ profileImage: `data:image/jpeg;base64,${base64}` });
+      if (!result.success) {
+        Alert.alert('Could not update photo', result.message || 'Choose a different image.');
+        return;
+      }
+      setProfile(current => current ? { ...current, profileImage: result.profile.profileImage } : current);
+    } catch {
+      Alert.alert('Could not update photo', 'Please try a JPEG or PNG image smaller than 2.8 MB.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const removePhoto = () => {
+    Alert.alert('Remove profile photo?', 'Your initials will be shown instead.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await clearAuthToken(); router.replace('/login'); } },
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        try {
+          const result = await updateProfile({ profileImage: '' });
+          if (result.success) setProfile(current => current ? { ...current, profileImage: '' } : current);
+        } catch { Alert.alert('Could not remove photo', 'Try again.'); }
+      } },
     ]);
   };
 
-  if (loading) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color={T.orange} />
-      </View>
-    );
-  }
+  const submitPasswordChange = async () => {
+    if (newPassword.length < 10 || newPassword.length > 128) return Alert.alert('Password length', 'Use 10–128 characters.');
+    if (newPassword !== confirmPassword) return Alert.alert('Passwords do not match', 'Check the new password and confirmation.');
+    setSavingPassword(true);
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      if (!result.success) return Alert.alert('Could not change password', result.message || 'Try again.');
+      setPasswordModalOpen(false);
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+      Alert.alert('Password updated', 'Your password has been changed.');
+    } catch { Alert.alert('Could not change password', 'Check your connection and try again.'); }
+    finally { setSavingPassword(false); }
+  };
+
+  const closePasswordModal = () => {
+    setPasswordModalOpen(false);
+    setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+  };
+
+  const handleLogout = () => Alert.alert('Sign out?', 'You can sign back in any time.', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Sign out', style: 'destructive', onPress: async () => { await clearAuthToken(); router.replace('/login'); } },
+  ]);
+
+  if (loading) return <View style={[styles.center, { backgroundColor: colors.background }]}><ActivityIndicator size="large" color={colors.accent}/></View>;
+
+  const initial = (profile?.displayName || profile?.username || profile?.email || 'A').trim().charAt(0).toUpperCase();
+  const joined = profile?.joinedAt ? new Date(profile.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '—';
 
   return (
-    <ScrollView style={s.root} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <LinearGradient colors={['#EC802B', '#EDC55B']} style={s.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <View style={s.blob1} /><View style={s.blob2} />
-        <View style={s.avatarCircle}>
-          <Text style={s.avatarInitial}>
-            {(profile?.username || profile?.email || 'U')[0].toUpperCase()}
-          </Text>
-        </View>
-        <Text style={s.displayName}>{profile?.username || 'Anonymous'}</Text>
-        <Text style={s.email}>{profile?.email}</Text>
-        <View style={s.statsRow}>
-          <View style={s.stat}>
-            <Text style={s.statVal}>{profile?.avatarCount || 0}</Text>
-            <Text style={s.statLbl}>Avatars</Text>
+    <>
+      <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+        <LinearGradient colors={mode === 'dark' ? ['#14213A', '#263D68'] : ['#142747', '#3157D5']} style={styles.header}>
+          <View style={styles.headerTop}>
+            <View><Text style={styles.headerEyebrow}>ACCOUNT</Text><Text style={styles.headerTitle}>Your profile</Text></View>
+            <View style={styles.memberPill}><Text style={styles.memberPillText}>MEMBER SINCE {joined.toUpperCase()}</Text></View>
           </View>
-          <View style={[s.stat, s.statBorder]}>
-            <Text style={s.statVal}>{profile?.joinedAt ? new Date(profile.joinedAt).getFullYear() : '—'}</Text>
-            <Text style={s.statLbl}>Joined</Text>
+          <View style={styles.identityRow}>
+            <View style={styles.avatarWrap}>
+              {profile?.profileImage ? <Image source={{ uri: profile.profileImage }} style={styles.avatarImage} contentFit="cover"/> : <Text style={styles.avatarInitial}>{initial}</Text>}
+              <TouchableOpacity accessibilityLabel="Choose profile photo" style={styles.cameraBadge} onPress={openPhotoPicker} activeOpacity={0.8}><Text style={styles.cameraIcon}>✎</Text></TouchableOpacity>
+            </View>
+            <View style={styles.identityCopy}>
+              <Text style={styles.name}>{profile?.displayName || profile?.username || 'Your name'}</Text>
+              <Text style={styles.handle}>{profile?.username ? `@${profile.username}` : 'Set a username'}</Text>
+              {!!profile?.pronouns && <Text style={styles.pronouns}>{profile.pronouns}</Text>}
+            </View>
+            <View style={styles.avatarCount}><Text style={styles.avatarCountValue}>{profile?.avatarCount || 0}</Text><Text style={styles.avatarCountLabel}>CREATIONS</Text></View>
+          </View>
+          <TouchableOpacity style={styles.photoAction} onPress={openPhotoPicker} activeOpacity={0.8}><Text style={styles.photoActionText}>Change profile photo</Text></TouchableOpacity>
+        </LinearGradient>
+
+        <View style={styles.sectionHeading}><Text style={[styles.sectionTitle, { color: colors.text }]}>Profile details</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>The basics people see about you</Text></View>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Field label="DISPLAY NAME" value={displayName} onChangeText={setDisplayName} editable={editing} placeholder="How should we call you?" colors={colors}/>
+          <View style={[styles.divider, { backgroundColor: colors.border }]}/>
+          <Field label="USERNAME" value={username} onChangeText={setUsername} editable={editing} placeholder="Choose a username" colors={colors} autoCapitalize="none" maxLength={30}/>
+          <View style={[styles.divider, { backgroundColor: colors.border }]}/>
+          <Field label="PRONOUNS" value={pronouns} onChangeText={setPronouns} editable={editing} placeholder="e.g. they / them" colors={colors} maxLength={32}/>
+          <View style={[styles.divider, { backgroundColor: colors.border }]}/>
+          <Text style={[styles.fieldLabel, { color: colors.muted }]}>ABOUT</Text>
+          <TextInput style={[styles.bioInput, { backgroundColor: editing ? colors.elevated : 'transparent', color: colors.text, borderColor: colors.border }]} value={bio} onChangeText={setBio} editable={editing} placeholder="A little about you and your creative style" placeholderTextColor={colors.muted} multiline maxLength={160}/>
+          <View style={styles.formFooter}>
+            {editing ? <><Text style={[styles.charCount, { color: colors.muted }]}>{bio.length}/160</Text><View style={styles.formActions}><TouchableOpacity onPress={cancelProfileEdit} style={[styles.secondaryButton, { borderColor: colors.border }]}><Text style={[styles.secondaryButtonText, { color: colors.text }]}>Cancel</Text></TouchableOpacity><TouchableOpacity disabled={saving} onPress={handleSaveProfile} style={[styles.primaryButton, { backgroundColor: colors.accent }]}><Text style={styles.primaryButtonText}>{saving ? 'Saving…' : 'Save changes'}</Text></TouchableOpacity></View></> : <TouchableOpacity onPress={() => setEditing(true)} style={[styles.primaryButton, { backgroundColor: colors.accent }]}><Text style={styles.primaryButtonText}>Edit profile</Text></TouchableOpacity>}
           </View>
         </View>
-      </LinearGradient>
 
-      {/* Edit Profile */}
-      <View style={s.card}>
-        <View style={s.cardHeader}>
-          <Text style={s.cardTitle}>Profile Info</Text>
-          <TouchableOpacity onPress={() => editing ? handleSave() : setEditing(true)} style={s.editBtn} activeOpacity={0.8}>
-            <Text style={s.editBtnText}>{saving ? 'Saving…' : editing ? 'Save' : 'Edit'}</Text>
+        <View style={styles.sectionHeading}><Text style={[styles.sectionTitle, { color: colors.text }]}>Account & settings</Text><Text style={[styles.sectionHint, { color: colors.muted }]}>Manage access and app preferences</Text></View>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <SettingRow icon="✉" title="Email address" detail={profile?.email || '—'} colors={colors}/>
+          <View style={[styles.divider, { backgroundColor: colors.border }]}/>
+          <TouchableOpacity onPress={() => setPasswordModalOpen(true)} activeOpacity={0.75}>
+            <SettingRow icon="⌑" title="Password & security" detail="Change your password" trailing="›" colors={colors}/>
           </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: colors.border }]}/>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: colors.elevated }]}><Text style={[styles.settingIconText, { color: colors.accent }]}>◐</Text></View>
+            <View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.text }]}>Appearance</Text><Text style={[styles.settingDetail, { color: colors.muted }]}>{mode === 'dark' ? 'Dark theme' : 'Light theme'}</Text></View>
+            <Switch value={mode === 'dark'} onValueChange={toggle} trackColor={{ false: '#C8D0DA', true: colors.accent }} thumbColor="#FFFFFF" accessibilityLabel="Toggle dark mode"/>
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]}/>
+          <SettingRow icon="◈" title="Membership" detail={`Joined ${joined}`} colors={colors}/>
         </View>
 
-        <View style={s.field}>
-          <Text style={s.label}>USERNAME</Text>
-          <TextInput
-            style={[s.input, !editing && s.inputDisabled]}
-            value={username}
-            onChangeText={setUsername}
-            editable={editing}
-            placeholder="Choose a username"
-            placeholderTextColor={T.muted}
-            maxLength={30}
-          />
-        </View>
+        {profile?.profileImage ? <TouchableOpacity onPress={removePhoto} style={styles.removePhoto}><Text style={{ color: colors.muted, fontSize: 13, fontWeight: '600' }}>Remove profile photo</Text></TouchableOpacity> : null}
+        <TouchableOpacity style={[styles.signOut, { borderColor: colors.danger }]} onPress={handleLogout} activeOpacity={0.85}><Text style={[styles.signOutText, { color: colors.danger }]}>Sign out</Text></TouchableOpacity>
+      </ScrollView>
 
-        <View style={s.field}>
-          <Text style={s.label}>BIO</Text>
-          <TextInput
-            style={[s.input, s.inputMulti, !editing && s.inputDisabled]}
-            value={bio}
-            onChangeText={setBio}
-            editable={editing}
-            placeholder="Tell us about yourself…"
-            placeholderTextColor={T.muted}
-            multiline
-            maxLength={160}
-          />
-          {editing && <Text style={s.charCount}>{bio.length}/160</Text>}
-        </View>
-
-        {editing && (
-          <TouchableOpacity onPress={() => setEditing(false)} style={s.cancelBtn} activeOpacity={0.8}>
-            <Text style={s.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Account */}
-      <View style={s.card}>
-        <Text style={s.cardTitle}>Account</Text>
-        <View style={s.infoRow}>
-          <Text style={s.infoLabel}>Email</Text>
-          <Text style={s.infoValue}>{profile?.email}</Text>
-        </View>
-        <View style={s.infoRow}>
-          <Text style={s.infoLabel}>Member since</Text>
-          <Text style={s.infoValue}>{profile?.joinedAt ? new Date(profile.joinedAt).toLocaleDateString() : '—'}</Text>
-        </View>
-      </View>
-
-      {/* Logout */}
-      <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
-        <Text style={s.logoutText}>Logout</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      <Modal visible={passwordModalOpen} transparent animationType="fade" onRequestClose={closePasswordModal}>
+        <View style={styles.scrim}><View style={[styles.passwordSheet, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Change password</Text><Text style={[styles.modalSubtitle, { color: colors.muted, marginBottom: 18 }]}>Choose a new password with at least 10 characters.</Text>
+          <PasswordField label="CURRENT PASSWORD" value={currentPassword} onChangeText={setCurrentPassword} colors={colors}/>
+          <PasswordField label="NEW PASSWORD" value={newPassword} onChangeText={setNewPassword} colors={colors}/>
+          <PasswordField label="CONFIRM NEW PASSWORD" value={confirmPassword} onChangeText={setConfirmPassword} colors={colors}/>
+          <View style={styles.formActions}><TouchableOpacity onPress={closePasswordModal} style={[styles.secondaryButton, { borderColor: colors.border }]}><Text style={[styles.secondaryButtonText, { color: colors.text }]}>Cancel</Text></TouchableOpacity><TouchableOpacity onPress={submitPasswordChange} disabled={savingPassword} style={[styles.primaryButton, { backgroundColor: colors.accent }]}><Text style={styles.primaryButtonText}>{savingPassword ? 'Updating…' : 'Update password'}</Text></TouchableOpacity></View>
+        </View></View>
+      </Modal>
+    </>
   );
 }
 
-const s = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: T.offwhite },
-  content: { paddingBottom: 120 },
-  center:  { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: T.offwhite },
+function Field({ label, value, onChangeText, editable, placeholder, colors, autoCapitalize, maxLength }: {
+  label: string; value: string; onChangeText: (value: string) => void; editable: boolean; placeholder: string;
+  colors: ReturnType<typeof useAppearance>['colors']; autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'; maxLength?: number;
+}) {
+  return <View style={styles.field}><Text style={[styles.fieldLabel, { color: colors.muted }]}>{label}</Text><TextInput style={[styles.textInput, { backgroundColor: editable ? colors.elevated : 'transparent', color: colors.text, borderColor: colors.border }]} value={value} onChangeText={onChangeText} editable={editable} placeholder={placeholder} placeholderTextColor={colors.muted} autoCapitalize={autoCapitalize} maxLength={maxLength}/></View>;
+}
 
-  header: { overflow: 'hidden', alignItems: 'center', paddingTop: 60, paddingBottom: 28 },
-  blob1: { position: 'absolute', top: -40, right: -30, width: 160, height: 160, borderRadius: 80, backgroundColor: T.teal, opacity: 0.2 },
-  blob2: { position: 'absolute', bottom: 10, left: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: T.cream, opacity: 0.2 },
+function PasswordField({ label, value, onChangeText, colors }: { label: string; value: string; onChangeText: (value: string) => void; colors: ReturnType<typeof useAppearance>['colors'] }) {
+  return <View style={styles.field}><Text style={[styles.fieldLabel, { color: colors.muted }]}>{label}</Text><TextInput style={[styles.textInput, { backgroundColor: colors.elevated, color: colors.text, borderColor: colors.border }]} value={value} onChangeText={onChangeText} placeholder="Enter password" placeholderTextColor={colors.muted} secureTextEntry autoCapitalize="none" autoCorrect={false}/></View>;
+}
 
-  avatarCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  avatarInitial: { fontSize: 32, fontWeight: '900', color: T.white },
-  displayName: { fontSize: 22, fontWeight: '800', color: T.white, marginBottom: 4 },
-  email: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginBottom: 20 },
+function SettingRow({ icon, title, detail, trailing, colors }: { icon: string; title: string; detail: string; trailing?: string; colors: ReturnType<typeof useAppearance>['colors'] }) {
+  return <View style={styles.settingRow}><View style={[styles.settingIcon, { backgroundColor: colors.elevated }]}><Text style={[styles.settingIconText, { color: colors.accent }]}>{icon}</Text></View><View style={styles.settingCopy}><Text style={[styles.settingTitle, { color: colors.text }]}>{title}</Text><Text style={[styles.settingDetail, { color: colors.muted }]} numberOfLines={1}>{detail}</Text></View>{trailing ? <Text style={[styles.settingTrailing, { color: colors.muted }]}>{trailing}</Text> : null}</View>;
+}
 
-  statsRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 32, gap: 32 },
-  stat: { alignItems: 'center' },
-  statBorder: { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.3)', paddingLeft: 32 },
-  statVal: { fontSize: 20, fontWeight: '900', color: T.white },
-  statLbl: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '600' },
-
-  card: { backgroundColor: T.white, marginHorizontal: 20, marginTop: 16, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: T.border },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: T.dark },
-  editBtn: { backgroundColor: T.orange, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 7 },
-  editBtnText: { fontSize: 13, fontWeight: '700', color: T.white },
-
-  field: { marginBottom: 14 },
-  label: { fontSize: 10, fontWeight: '800', color: T.orange, letterSpacing: 1.5, marginBottom: 6 },
-  input: { backgroundColor: T.offwhite, borderRadius: 12, borderWidth: 1.5, borderColor: T.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: T.dark },
-  inputMulti: { minHeight: 80, textAlignVertical: 'top' },
-  inputDisabled: { backgroundColor: '#FDF8F3', color: T.muted },
-  charCount: { fontSize: 11, color: T.muted, textAlign: 'right', marginTop: 4 },
-  cancelBtn: { alignItems: 'center', paddingVertical: 10 },
-  cancelText: { fontSize: 14, color: T.muted, fontWeight: '600' },
-
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F5EDE0' },
-  infoLabel: { fontSize: 13, color: T.muted, fontWeight: '600' },
-  infoValue: { fontSize: 13, color: T.dark, fontWeight: '600' },
-
-  logoutBtn: { marginHorizontal: 20, marginTop: 16, height: 52, borderRadius: 16, backgroundColor: T.white, borderWidth: 1.5, borderColor: '#F06038', alignItems: 'center', justifyContent: 'center' },
-  logoutText: { fontSize: 15, fontWeight: '700', color: '#F06038' },
+const styles = StyleSheet.create({
+  page: { paddingBottom: 124 },
+  center: { flex: 1, minHeight: 180, justifyContent: 'center', alignItems: 'center' },
+  header: { paddingHorizontal: 24, paddingTop: 58, paddingBottom: 23, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  headerTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  headerEyebrow: { color: '#AFC1F6', fontSize: 9, fontWeight: '800', letterSpacing: 2 },
+  headerTitle: { color: '#FFFFFF', fontSize: 27, fontWeight: '800', marginTop: 4 },
+  memberPill: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, backgroundColor: 'rgba(255,255,255,.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,.16)', marginTop: 5 },
+  memberPillText: { color: 'rgba(255,255,255,.8)', fontSize: 8, fontWeight: '800', letterSpacing: 0.6 },
+  identityRow: { flexDirection: 'row', alignItems: 'center', marginTop: 26, gap: 14 },
+  avatarWrap: { width: 76, height: 76, borderRadius: 25, backgroundColor: 'rgba(255,255,255,.18)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,.38)', alignItems: 'center', justifyContent: 'center' },
+  avatarImage: { width: 72, height: 72, borderRadius: 23 },
+  avatarInitial: { color: '#FFFFFF', fontSize: 31, fontWeight: '800' },
+  cameraBadge: { position: 'absolute', right: -5, bottom: -5, width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#61DFC6', borderWidth: 2, borderColor: '#203963' },
+  cameraIcon: { color: '#142747', fontSize: 13, fontWeight: '900' },
+  identityCopy: { flex: 1 },
+  name: { color: '#FFFFFF', fontSize: 19, fontWeight: '800' },
+  handle: { color: 'rgba(255,255,255,.7)', fontSize: 13, marginTop: 4 },
+  pronouns: { color: '#B9C9F5', fontSize: 11, marginTop: 5 },
+  avatarCount: { alignItems: 'flex-end' },
+  avatarCountValue: { color: '#FFFFFF', fontSize: 23, fontWeight: '900' },
+  avatarCountLabel: { color: 'rgba(255,255,255,.58)', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  photoAction: { alignSelf: 'flex-start', marginLeft: 90, marginTop: 8, paddingVertical: 6 },
+  photoActionText: { color: '#C6D4FF', fontSize: 11, fontWeight: '700' },
+  sectionHeading: { marginHorizontal: 22, marginTop: 25, marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  sectionHint: { fontSize: 11, marginTop: 3 },
+  card: { marginHorizontal: 18, paddingHorizontal: 17, paddingVertical: 6, borderWidth: 1, borderRadius: 21 },
+  field: { paddingVertical: 11 },
+  fieldLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.3, marginBottom: 7 },
+  textInput: { minHeight: 42, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderRadius: 11, fontSize: 14 },
+  bioInput: { minHeight: 82, paddingHorizontal: 12, paddingVertical: 11, borderWidth: 1, borderRadius: 12, fontSize: 14, textAlignVertical: 'top' },
+  divider: { height: 1 },
+  formFooter: { paddingTop: 12, paddingBottom: 12 },
+  charCount: { fontSize: 10, textAlign: 'right', marginBottom: 8 },
+  formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 9, marginTop: 10 },
+  primaryButton: { minHeight: 42, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  secondaryButton: { minHeight: 42, paddingHorizontal: 16, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  secondaryButtonText: { fontSize: 12, fontWeight: '700' },
+  settingRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  settingIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  settingIconText: { fontSize: 16, fontWeight: '800' },
+  settingCopy: { flex: 1 },
+  settingTitle: { fontSize: 13, fontWeight: '700' },
+  settingDetail: { fontSize: 10, marginTop: 3 },
+  settingTrailing: { fontSize: 22 },
+  removePhoto: { alignSelf: 'center', paddingVertical: 17 },
+  signOut: { marginHorizontal: 18, marginTop: 5, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: 14 },
+  signOutText: { fontSize: 13, fontWeight: '800' },
+  modalPage: { flex: 1, paddingTop: 24 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 },
+  modalTitle: { fontSize: 21, fontWeight: '800' },
+  modalSubtitle: { fontSize: 11, marginTop: 4 },
+  modalClose: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  photoTile: { flex: 1, aspectRatio: 1, padding: 3 },
+  photoThumbnail: { width: '100%', height: '100%', borderRadius: 9, backgroundColor: '#DCE1E7' },
+  emptyPhotos: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 36 },
+  emptyPhotosTitle: { fontSize: 17, fontWeight: '800' },
+  emptyPhotosText: { fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 7 },
+  scrim: { flex: 1, backgroundColor: 'rgba(5,12,22,.62)', justifyContent: 'center', padding: 18 },
+  passwordSheet: { borderRadius: 22, padding: 20 },
 });

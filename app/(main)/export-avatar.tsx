@@ -4,25 +4,26 @@ import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-    ActivityIndicator, Alert, Dimensions, FlatList,
+    ActivityIndicator, Alert, Dimensions, FlatList, Share,
     Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { Circle, Path, Rect, Svg } from 'react-native-svg';
+import { useAppearance } from '@/constants/appearance';
 
 const { width: SW } = Dimensions.get('window');
 const CARD = (SW - 48) / 2;
 
 const T = {
-  cream:    '#EBCCAD',
-  orange:   '#EC802B',
-  yellow:   '#EDC55B',
-  teal:     '#66BCB4',
-  dark:     '#2C1A0E',
+  cream:    '#DCE1E7',
+  orange:   '#3157D5',
+  yellow:   '#A8B9F3',
+  teal:     '#2B506F',
+  dark:     '#17212B',
   white:    '#FFFFFF',
-  offwhite: '#FDF8F3',
-  muted:    '#9A7A5A',
-  border:   '#EBCCAD',
-  card:     '#FDF0E4',
+  offwhite: '#F4F5F7',
+  muted:    '#687482',
+  border:   '#DCE1E7',
+  card:     '#EDF1F6',
 };
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -74,6 +75,7 @@ async function loadLocalAvatars(): Promise<SavedAvatar[]> {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function ExportAvatarScreen() {
+  const { colors } = useAppearance();
   const [tab, setTab]               = useState<'2d' | '3d'>('2d');
   const [gallery2d, setGallery2d]   = useState<any[]>([]);
   const [avatar3d, setAvatar3d]     = useState<any>(null);
@@ -103,7 +105,6 @@ export default function ExportAvatarScreen() {
         return;
       }
       // Use React Native's built-in Share
-      const { Share } = require('react-native');
       await Share.share({
         title: avatar.name || 'My Avatar',
         message: `Check out my avatar: ${avatar.name || 'Avatar'}`,
@@ -143,15 +144,15 @@ export default function ExportAvatarScreen() {
   };
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.title}>My Avatars</Text>
-        <Text style={s.subtitle}>Your saved creations</Text>
+        <Text style={[s.title, { color: colors.text }]}>My Avatars</Text>
+        <Text style={[s.subtitle, { color: colors.muted }]}>Your saved creations</Text>
       </View>
 
       {/* Tab switcher */}
-      <View style={s.tabs}>
+      <View style={[s.tabs, { backgroundColor: colors.elevated }]}>
         <TouchableOpacity style={[s.tab, tab === '2d' && s.tabActive]} onPress={() => setTab('2d')} activeOpacity={0.8}>
           <Text style={[s.tabText, tab === '2d' && s.tabTextActive]}>2D Gallery</Text>
         </TouchableOpacity>
