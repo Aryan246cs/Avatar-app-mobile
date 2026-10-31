@@ -3,13 +3,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   Alert, Dimensions, Image,
-  ScrollView, StatusBar,
+  ScrollView,
   StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
 import Animated, {
   FadeInDown, FadeInRight
 } from 'react-native-reanimated';
 import { Circle, Path, Svg } from 'react-native-svg';
+import { StatusBar } from 'expo-status-bar';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -56,7 +57,7 @@ export default function HomeScreen() {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar style="light" />
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
         {/* Hero */}

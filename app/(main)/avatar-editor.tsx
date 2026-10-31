@@ -4,10 +4,13 @@ import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import {
     Alert, Dimensions, Modal, ScrollView, StyleSheet,
-    Text, TextInput, TouchableOpacity, View
+    Text, TextInput, TouchableOpacity, View, type ViewInstance
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import type { ComponentClass } from 'react';
+
+const CompatibleWebView = WebView as ComponentClass<any>;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -221,9 +224,9 @@ function ColorPickerModal({
   const pureHue      = `hsl(${Math.round(hue)},100%,50%)`;
 
   // ── touch refs ──────────────────────────────────────────────────────────
-  const gradRef   = useRef<View>(null); const gradX = useRef(0); const gradY = useRef(0);
-  const brightRef = useRef<View>(null); const brightY = useRef(0);
-  const hueRef    = useRef<View>(null); const hueX = useRef(0);
+  const gradRef   = useRef<ViewInstance>(null); const gradX = useRef(0); const gradY = useRef(0);
+  const brightRef = useRef<ViewInstance>(null); const brightY = useRef(0);
+  const hueRef    = useRef<ViewInstance>(null); const hueX = useRef(0);
 
   const applyGrad = (px: number, py: number) => {
     const s = Math.max(0, Math.min(1, (px - gradX.current) / GRAD_W));
@@ -284,15 +287,15 @@ function ColorPickerModal({
               onResponderMove={e => applyGrad(e.nativeEvent.pageX, e.nativeEvent.pageY)}
             >
               {/* Base hue */}
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: pureHue }]} />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: pureHue }]} />
               {/* White left→right — 20 vertical strips */}
-              <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'row' }]}>
+              <View style={[StyleSheet.absoluteFill, { flexDirection: 'row' }]}>
                 {Array.from({ length: 20 }, (_, i) => (
                   <View key={i} style={{ flex: 1, backgroundColor: `rgba(255,255,255,${(1 - i / 19).toFixed(2)})` }} />
                 ))}
               </View>
               {/* Black top→bottom — 20 horizontal strips */}
-              <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'column' }]}>
+              <View style={[StyleSheet.absoluteFill, { flexDirection: 'column' }]}>
                 {Array.from({ length: 20 }, (_, i) => (
                   <View key={i} style={{ flex: 1, backgroundColor: `rgba(0,0,0,${(i / 19).toFixed(2)})` }} />
                 ))}
@@ -581,7 +584,7 @@ export default function AvatarEditorScreen() {
       {/* ── TOP: Avatar viewer (fills remaining space above panel) ── */}
       <View style={s.viewerWrap}>
         {__DEV__ ? (
-          <WebView
+          <CompatibleWebView
             ref={webViewRef}
             source={{ uri: avatarViewerUrl }}
             style={s.webView}
@@ -591,8 +594,8 @@ export default function AvatarEditorScreen() {
                 <Text style={{ color: D.muted }}>Loading avatar…</Text>
               </View>
             )}
-            onError={(e) => { console.log('WebView error:', e.nativeEvent); }}
-            onHttpError={(e) => { console.log('WebView HTTP error:', e.nativeEvent.statusCode); }}
+            onError={(e: { nativeEvent: unknown }) => { console.log('WebView error:', e.nativeEvent); }}
+            onHttpError={(e: { nativeEvent: { statusCode: number } }) => { console.log('WebView HTTP error:', e.nativeEvent.statusCode); }}
           />
         ) : (
           <View style={s.loaderBox}>

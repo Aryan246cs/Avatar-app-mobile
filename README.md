@@ -25,7 +25,7 @@
 
 ## Overview
 
-AVATARA is a cross-platform mobile app that lets users build and personalize 3D avatars from a rich catalog of body types, clothing, accessories, and color options. The 3D viewer runs as a Vite + Three.js web app embedded inside a React Native WebView, enabling high-fidelity real-time rendering on mobile without native OpenGL bindings. Users can also generate AI-powered 2D avatar portraits using Stable Diffusion via the HuggingFace Inference API, save their creations to a personal gallery, and manage their profile — all backed by a Node.js/Express REST API with MongoDB persistence.
+AVATARA is a cross-platform mobile app that lets users build and personalize 3D avatars from a rich catalog of body types, clothing, accessories, and color options. The 3D viewer runs as a Vite + Three.js web app embedded inside a React Native WebView, enabling high-fidelity real-time rendering on mobile without native OpenGL bindings. Users can also generate AI-powered 2D avatar portraits using Qwen-Image through Hugging Face Inference Providers, save their creations to a personal gallery, and manage their profile — all backed by a Node.js/Express REST API with MongoDB persistence.
 
 ---
 
@@ -40,7 +40,7 @@ AVATARA is a cross-platform mobile app that lets users build and personalize 3D 
 - Camera orbit controls
 
 ### AI Image Generation
-- Text-to-image generation via Stable Diffusion (HuggingFace Inference API)
+- Text-to-image generation via Qwen-Image (Hugging Face Inference Providers)
 - Style options: Anime, Cartoon, NFT, Cyberpunk, Fantasy
 - Mood and background controls
 - Trait-based prompt building
@@ -76,7 +76,7 @@ AVATARA is a cross-platform mobile app that lets users build and personalize 3D 
 | Backend | Node.js + Express |
 | Database | MongoDB + Mongoose |
 | Authentication | JWT + bcrypt (cost factor 12) |
-| AI Generation | HuggingFace Inference API (Stable Diffusion) |
+| AI Generation | Hugging Face Inference Providers (Qwen-Image) |
 | State Management | React useState / useEffect |
 | Token Storage | AsyncStorage |
 
@@ -265,7 +265,7 @@ HUGGINGFACE_API_KEY=hf_your_key_here
 | `PORT` | Express server port |
 | `MONGODB_URI` | MongoDB connection string |
 | `JWT_SECRET` | Secret for signing JWT tokens |
-| `HUGGINGFACE_API_KEY` | From [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) — needs "Make calls to Inference Providers" permission |
+| `HUGGINGFACE_API_KEY` | From [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) — needs "Make calls to Inference Providers" permission. Image generation may use provider credits or incur usage charges. |
 
 ---
 
@@ -430,7 +430,7 @@ webViewRef.current?.postMessage(JSON.stringify({ type: 'SET_BODY', value: 'femal
 | 3 | Full Suits | Suits 4–8 fully replace the custom avatar body |
 | 4 | Hair | Hair 2–6 use hardcoded position offsets, not skeleton binding |
 | 5 | Backend | MongoDB on localhost only — not accessible from other devices |
-| 6 | AI | HuggingFace free tier is slow (15–30 sec per image) |
+| 6 | AI | Image generation availability, latency, and cost depend on the selected Hugging Face inference provider |
 | 7 | Downloads | expo-media-library doesn't work in Expo Go — needs dev build |
 | 8 | Sync | No real-time sync — data fetched on screen load only |
 | 9 | Editor | Saved avatar config doesn't auto-load when editor opens |

@@ -62,7 +62,7 @@ function ProfileIcon({ color }: { color: string }) {
 // Routes to hide from the nav bar
 const HIDDEN_ROUTES = new Set(['item-selection']);
 
-function FloatingTabBar({ state, descriptors, navigation }: any) {
+function FloatingTabBar({ state, descriptors, emitter, navigateToTab }: any) {
   const insets = useSafeAreaInsets();
 
   // Only show routes that have a tabBarIcon and aren't hidden
@@ -80,11 +80,11 @@ function FloatingTabBar({ state, descriptors, navigation }: any) {
           const focused = state.index === state.routes.indexOf(route);
 
           const onPress = () => {
-            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-            if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+            const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!focused && !event.defaultPrevented) navigateToTab(route.key);
           };
 
-          const iconColor = focused ? '#EC802B' : D.muted;
+          const iconColor: string = focused ? '#EC802B' : D.muted;
 
           return (
             <TouchableOpacity
@@ -140,23 +140,23 @@ export default function MainLayout() {
     >
       <Tabs.Screen
         name="home"
-        options={{ title: 'Home', tabBarIcon: ({ color }) => <HomeIcon color={color} /> }}
+        options={{ title: 'Home', tabBarIcon: ({ color }) => <HomeIcon color={String(color ?? D.muted)} /> }}
       />
       <Tabs.Screen
         name="avatar-editor"
-        options={{ title: '3D Playground', tabBarIcon: ({ color }) => <PlaygroundIcon color={color} /> }}
+        options={{ title: '3D Playground', tabBarIcon: ({ color }) => <PlaygroundIcon color={String(color ?? D.muted)} /> }}
       />
       <Tabs.Screen
         name="ai-generate"
-        options={{ title: '2D Studio', tabBarIcon: ({ color }) => <StudioIcon color={color} /> }}
+        options={{ title: '2D Studio', tabBarIcon: ({ color }) => <StudioIcon color={String(color ?? D.muted)} /> }}
       />
       <Tabs.Screen
         name="export-avatar"
-        options={{ title: 'Export', tabBarIcon: ({ color }) => <ExportIcon color={color} /> }}
+        options={{ title: 'Export', tabBarIcon: ({ color }) => <ExportIcon color={String(color ?? D.muted)} /> }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: 'Profile', tabBarIcon: ({ color }) => <ProfileIcon color={color} /> }}
+        options={{ title: 'Profile', tabBarIcon: ({ color }) => <ProfileIcon color={String(color ?? D.muted)} /> }}
       />
       <Tabs.Screen name="item-selection" options={{ href: null }} />
     </Tabs>

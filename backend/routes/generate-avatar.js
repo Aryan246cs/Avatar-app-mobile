@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const { InferenceClient } = require('@huggingface/inference');
+
+const HUGGINGFACE_IMAGE_MODEL = 'Qwen/Qwen-Image';
 
 // ─── STYLE MAPPINGS ───────────────────────────────────────────────────────────
 const STYLE_MAP = {
@@ -50,42 +53,25 @@ function buildPrompt({ style, character, traits, mood, background }) {
   return { positive, negative };
 }
 
-// ─── HUGGINGFACE (FLUX.1-schnell) ─────────────────────────────────────────────
-// Free tier, no negative prompt support, 4-step distilled model
-async function generateWithHuggingFace({ positive, seed }) {
+// ─── HUGGING FACE INFERENCE PROVIDERS (Qwen-Image) ────────────────────────────
+async function generateWithHuggingFace({ positive, negative, seed }) {
   const apiKey = process.env.HUGGINGFACE_API_KEY;
-  if (!apiKey || apiKey === 'your_huggingface_api_key_here') {
+  if (!apiKey || /your_|placeholder/i.test(apiKey)) {
     throw new Error('HUGGINGFACE_API_KEY not configured in backend/.env');
   }
 
-  const res = await fetch(
-    'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        Accept: 'image/png',
-      },
-      body: JSON.stringify({
-        inputs: positive,
-        parameters: {
-          num_inference_steps: 4,
-          width: 768,
-          height: 768,
-          ...(seed ? { seed: parseInt(seed, 10) } : {}),
-        },
-      }),
-    }
-  );
+  const client = new InferenceClient(apiKey);
+  const parameters = { negative_prompt: negative, width: 1024, height: 1024 };
+  const parsedSeed = seed === undefined || seed === null || seed === '' ? null : Number.parseInt(seed, 10);
+  if (Number.isInteger(parsedSeed)) parameters.seed = parsedSeed;
 
-  if (!res.ok) {
-    const errText = await res.text();
-    if (res.status === 503) throw new Error('Model is loading, please retry in ~20 seconds.');
-    throw new Error(`HuggingFace error ${res.status}: ${errText}`);
-  }
+  const image = await client.textToImage({
+    model: HUGGINGFACE_IMAGE_MODEL,
+    inputs: positive,
+    parameters,
+  });
 
-  const buffer = await res.arrayBuffer();
+  const buffer = await image.arrayBuffer();
   return Buffer.from(buffer).toString('base64');
 }
 
@@ -149,7 +135,7 @@ router.post('/', async (req, res) => {
     if (provider === 'stability') {
       base64 = await generateWithStability({ positive, negative, seed });
     } else {
-      base64 = await generateWithHuggingFace({ positive, seed });
+      base64 = await generateWithHuggingFace({ positive, negative, seed });
     }
 
     return res.json({ success: true, image: base64, prompt: positive, provider });

@@ -137,6 +137,7 @@ export default function ExportAvatarScreen() {
   };
 
   const formatDate = (val: any) => {
+    if (val == null) return 'Unknown';
     const d = new Date(typeof val === 'number' ? val : val);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
@@ -212,7 +213,7 @@ export default function ExportAvatarScreen() {
             <View style={s.config3dCard}>
               <View style={s.config3dHeader}>
                 <Text style={s.config3dTitle}>Saved 3D Avatar</Text>
-                <Text style={s.config3dDate}>Last saved: {formatDate(avatar3d.updatedAt ?? Date.now())}</Text>
+                <Text style={s.config3dDate}>Last saved: {formatDate(avatar3d.updatedAt ?? avatar3d.createdAt)}</Text>
               </View>
 
               <View style={s.configRow}>
@@ -244,7 +245,7 @@ export default function ExportAvatarScreen() {
             <View style={s.center}>
               <EmptyIcon color={T.muted} />
               <Text style={s.emptyTitle}>No 3D avatar saved</Text>
-              <Text style={s.emptyText}>Customize your avatar in the 3D Editor and tap "Save Avatar"</Text>
+              <Text style={s.emptyText}>Customize your avatar in the 3D Editor and tap &quot;Save Avatar&quot;</Text>
             </View>
           )}
         </ScrollView>
@@ -325,5 +326,4 @@ const s = StyleSheet.create({
   fsBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: T.orange },
   fsBtnText: { color: T.orange, fontSize: 14, fontWeight: '700' },
   fsCloseBtn: {},
-  white: T.white,
 });
